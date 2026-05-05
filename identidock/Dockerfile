@@ -6,8 +6,6 @@ RUN pip install -r ./requirements.txt
 
 WORKDIR /app
 
-COPY uwsgi.ini /
-
 COPY app /app
 COPY cmd.sh /
 RUN chmod +x /cmd.sh
