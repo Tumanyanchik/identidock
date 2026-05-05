@@ -1,6 +1,8 @@
 services:
    identidock:
-      build: .
+      build: 
+         context: ./identidock
+         dockerfile: Dockerfile
       container_name: identidock
       expose:
          - "9090"
