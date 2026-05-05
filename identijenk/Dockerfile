@@ -33,7 +33,3 @@ RUN curl -L "https://github.com/docker/compose/releases/latest/download/docker-c
     && chmod +x /usr/local/bin/docker-compose
 
 USER jenkins
-
-#COPY plugins.txt /usr/share/jenkins/plugins.txt
-
-#RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/plugins.txt
