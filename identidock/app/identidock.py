@@ -40,7 +40,7 @@ def get_identicon(name):
    image = cache.get(name)
    if image is None:
       print("Cache miss", flush=True)
-      r = requests.get('http://dnmonster:8080/monster/' + name + '?size=360')
+      r = requests.get('http://dnmonster:8000/monster/' + name + '?size=360')
       image = r.content
       cache.set(name, image)
    return Response(image, mimetype='image/png')
