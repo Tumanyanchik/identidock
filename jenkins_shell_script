@@ -1,0 +1,38 @@
+COMPOSE_ARGS="-f jenkins.yml -p jenkins"
+
+cleanup() {
+    sudo docker-compose $COMPOSE_ARGS stop
+    sudo docker-compose $COMPOSE_ARGS rm --force -v
+}
+trap cleanup EXIT
+
+sudo docker-compose $COMPOSE_ARGS stop
+sudo docker-compose $COMPOSE_ARGS rm --force -v
+
+sudo docker-compose $COMPOSE_ARGS build --no-cache
+sudo docker-compose $COMPOSE_ARGS up -d
+
+sleep 5
+
+sudo docker-compose $COMPOSE_ARGS run --no-deps --rm -e ENV=UNIT identidock
+ERR=$?
+
+if [ $ERR -eq 0 ]; then
+    HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+    CODE=$(curl -sL -w "%{http_code}" http://$HOST_IP:9090/monster/bla -o /dev/null)
+    if [ "$CODE" != "200" ]; then
+        echo "Health check failed (HTTP $CODE) for $HOST_IP:9090"
+        ERR=1
+    else
+        echo "Health check passed - tagging"
+        HASH=$(git rev-parse --short HEAD)
+        sudo docker tag -f jenkins_identidock tumanyan/identidock:$HASH
+        sudo docker tag -f jenkins_identidock tumanyan/identidock:$newest
+        echo "Pushing"
+        sudo docker login -e tumanyan2000@yandex.ru -u "$DOCKER_USER" -p "$DOCKER_PASS"
+        sudo docker push tumanyan/identidock:$HASH
+        sudo docker push tumanyan/identidock:$newest
+    fi
+fi
+
+return $ERR
