@@ -109,7 +109,7 @@ docker run --volumes-from jenkins-data2 -v $(pwd):/backup \
 
 ---
 ## __Структура файлов__ 
-_identidock_ - Каталог приложения identidock 
+_identidock_ - Каталог приложения identidock<br> 
 _identijenk_ - Каталог для Jenkins
 
 ---
