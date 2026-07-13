@@ -1,4 +1,4 @@
-COMPOSE_ARGS="-f jenkins.yml -p jenkins"
+COMPOSE_ARGS="-f docker-compose.yml -p jenkins"
 
 cleanup() {
     sudo docker-compose $COMPOSE_ARGS stop
