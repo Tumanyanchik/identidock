@@ -1,0 +1,9 @@
+services:
+   identidock:
+      image: tumanyan/identidock:d16a447
+      environment:
+         ENV: DEV
+   dnmonster:
+      image: amouat/dnmonster:1.0
+   redis:
+      image: redis:8.6.2-alpine

@@ -1,24 +1,28 @@
 services:
-   identidock:
-      build: 
-         context: ./identidock
-         dockerfile: Dockerfile
-      container_name: identidock
-      expose:
-         - "9090"
+   proxy:
+      image: proxy:1.0
+      links:
+         - identidock
       ports:
-         - "9090:9090"
+         - "80:80"
+      environment:
+         - NGINX_HOST=192.168.1.71
+         - NGINX_PROXY=http://identidock:9090
+
+   identidock:
+      extends:
+         file: common.yml
+         service: identidock 
       environment:
          ENV: PROD
-      links:
-         - dnmonster
-         - redis
 
    dnmonster:
-      image: amouat/dnmonster:1.0
-      container_name: dnmonster
+      extends:
+         file: common.yml
+         service: dnmonster
 
    redis:
-      image: redis:8.6.2-alpine
-      container_name: redis
+      extends:
+         file: common.yml
+         service: redis
 
