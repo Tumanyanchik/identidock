@@ -6,13 +6,15 @@ services:
       ports:
          - "80:80"
       environment:
-         - NGINX_HOST=192.168.1.71
+         - NGINX_HOST=192.168.30.53
          - NGINX_PROXY=http://identidock:9090
 
    identidock:
       extends:
          file: common.yml
          service: identidock 
+      ports:
+         - "5000:5000"
       environment:
          ENV: PROD
 

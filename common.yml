@@ -1,6 +1,6 @@
 services:
    identidock:
-      image: tumanyan/identidock:d16a447
+      build: ./identidock
       environment:
          ENV: DEV
    dnmonster:

@@ -1,38 +1,87 @@
+
 COMPOSE_ARGS="-f docker-compose.yml -p jenkins"
+TEST_PORT=5000
 
 cleanup() {
-    sudo docker-compose $COMPOSE_ARGS stop
-    sudo docker-compose $COMPOSE_ARGS rm --force -v
+    sudo docker-compose ${COMPOSE_ARGS} stop
+    sudo docker-compose ${COMPOSE_ARGS} rm --force -v
 }
 trap cleanup EXIT
 
-sudo docker-compose $COMPOSE_ARGS stop
-sudo docker-compose $COMPOSE_ARGS rm --force -v
+# Проверяем изменения относительно предыдущего успешного билда
+CURRENT_HASH=$(git rev-parse --short HEAD)
 
-sudo docker-compose $COMPOSE_ARGS build --no-cache
-sudo docker-compose $COMPOSE_ARGS up -d
-
-sleep 5
-
-sudo docker-compose $COMPOSE_ARGS run --no-deps --rm -e ENV=UNIT identidock
-ERR=$?
-
-if [ $ERR -eq 0 ]; then
-    HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
-    CODE=$(curl -sL -w "%{http_code}" http://$HOST_IP:9090/monster/bla -o /dev/null)
-    if [ "$CODE" != "200" ]; then
-        echo "Health check failed (HTTP $CODE) for $HOST_IP:9090"
-        ERR=1
-    else
-        echo "Health check passed - tagging"
-        HASH=$(git rev-parse --short HEAD)
-        sudo docker tag -f jenkins_identidock tumanyan/identidock:$HASH
-        sudo docker tag -f jenkins_identidock tumanyan/identidock:$newest
-        echo "Pushing"
-        sudo docker login -e tumanyan2000@yandex.ru -u "$DOCKER_USER" -p "$DOCKER_PASS"
-        sudo docker push tumanyan/identidock:$HASH
-        sudo docker push tumanyan/identidock:$newest
-    fi
+# Если есть предыдущий успешный коммит - используем его
+if [ -n "${GIT_PREVIOUS_SUCCESSFUL_COMMIT}" ]; then
+    echo "Comparing with previous successful build: ${GIT_PREVIOUS_SUCCESSFUL_COMMIT}"
+    CHANGED=$(git diff --name-only ${GIT_PREVIOUS_SUCCESSFUL_COMMIT} HEAD | grep -E "\.py$|Dockerfile|docker-compose\.yml|common\.yml|requirements\.txt|cmd\.sh" || true)
+else
+    # Если нет предыдущего билда - сравниваем с HEAD~1
+    echo "No previous successful build, comparing with HEAD~1"
+    CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E "\.py$|Dockerfile|docker-compose\.yml|common\.yml|requirements\.txt|cmd\.sh" || true)
 fi
 
-return $ERR
+echo "Current commit: ${CURRENT_HASH}"
+
+if [ -n "${CHANGED}" ]; then
+    echo "✅ Changes detected:"
+    echo "${CHANGED}"
+else
+    echo "ℹ️ No changes detected"
+fi
+
+# Очистка
+sudo docker-compose ${COMPOSE_ARGS} stop || true
+sudo docker-compose ${COMPOSE_ARGS} rm --force -v || true
+
+# Сборка (только если есть изменения)
+if [ -n "${CHANGED}" ]; then
+    echo "🏗️ Building new image..."
+    sudo docker-compose ${COMPOSE_ARGS} build --no-cache
+else
+    echo "ℹ️ Skipping build (no changes)"
+fi
+
+# Запуск
+sudo docker-compose ${COMPOSE_ARGS} up -d
+sleep 5
+
+# Тесты
+sudo docker-compose ${COMPOSE_ARGS} run --no-deps --rm -e ENV=UNIT identidock
+ERR=$?
+
+if [ ${ERR} -eq 0 ]; then
+    HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+    CODE=$(curl -sL -w "%{http_code}" "http://${HOST_IP}:${TEST_PORT}/monster/bla" -o /dev/null)
+    
+    if [ "${CODE}" = "200" ]; then
+        echo "✅ All tests passed!"
+        
+        # Пуш только если есть изменения
+        if [ -n "${CHANGED}" ]; then
+            echo "📦 Pushing new image..."
+            
+            CONTAINER_ID=$(sudo docker ps -aqf "name=jenkins-identidock-1" | head -1)
+            IMAGE_ID=$(sudo docker inspect ${CONTAINER_ID} -f '{{.Image}}')
+            
+            sudo docker tag ${IMAGE_ID} tumanyan/identidock:${CURRENT_HASH}
+            sudo docker tag ${IMAGE_ID} tumanyan/identidock:newest
+            
+            sudo docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+            sudo docker push tumanyan/identidock:${CURRENT_HASH}
+            sudo docker push tumanyan/identidock:newest
+            
+            echo "✅ Pushed!"
+        else
+            echo "ℹ️ No changes - skipping push"
+        fi
+        
+        exit 0
+    else
+        echo "❌ Health check failed (HTTP ${CODE})"
+        exit 1
+    fi
+else
+    echo "❌ Unit tests failed"
+    exit ${ERR}
+fi
