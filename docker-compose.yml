@@ -8,6 +8,7 @@ services:
       environment:
          - NGINX_HOST=192.168.30.53
          - NGINX_PROXY=http://identidock:9090
+      profiles: ["${PROFILE:-prod}"]
 
    identidock:
       extends:
