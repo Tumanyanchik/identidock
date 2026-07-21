@@ -1,0 +1,47 @@
+---
+- hosts: identidock
+  become: yes
+  tasks:
+
+    - name: redis container
+      docker_container:
+        name: redis
+        image: redis:8.6.2-alpine
+        pull: true
+        state: started
+        restart_policy: always
+
+    - name: dnmonster container
+      docker_container:
+        name: dnmonster
+        image: amouat/dnmonster:1.0
+        pull: true
+        state: started
+
+    - name: identidock container
+      docker_container:
+        name: identidock
+        image: tumanyan/identidock:newest
+        pull: true
+        state: started
+        links:
+          - "dnmonster:dnmonster"
+          - "redis:redis"
+        env:
+          ENV: PROD
+        restart_policy: always
+
+    - name: proxy container
+      docker_container:
+        name: proxy
+        image: tumanyan/proxy:1.0
+        pull: true
+        state: started
+        links: 
+          - "identidock:identidock"
+        ports:
+          - "80:80"
+        env:
+          NGINX_HOST: 192.168.30.46
+          NGINX_PROXY: http://identidock:9090
+        restart_policy: always
