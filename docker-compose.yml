@@ -1,28 +1,96 @@
 services:
-   proxy:
-      image: proxy:1.0
-      links:
-         - identidock
-      ports:
-         - "80:80"
-      environment:
-         - NGINX_HOST=192.168.30.53
-         - NGINX_PROXY=http://identidock:9090
+    proxy:
+       image: proxy:1.0
+       links:
+          - identidock
+       ports:
+          - "80:80"
+       environment:
+          - NGINX_HOST=192.168.30.38
+          - NGINX_PROXY=http://identidock:9090
 
-   identidock:
-      extends:
-         file: common.yml
-         service: identidock 
-      environment:
-         ENV: PROD
+    identidock:
+       extends:
+          file: common.yml
+          service: identidock
+       environment:
+          ENV: PROD
 
-   dnmonster:
-      extends:
-         file: common.yml
-         service: dnmonster
+    dnmonster:
+       extends:
+          file: common.yml
+          service: dnmonster
 
-   redis:
-      extends:
-         file: common.yml
-         service: redis
+    redis:
+       extends:
+          file: common.yml
+          service: redis
+
+    logspout:
+       extends:
+          file: common.yml
+          service: logspout
+       ports:
+          - "8000:80"
+       volumes:
+          - /var/run/docker.sock:/tmp/docker.sock
+       command: logstash://logstash:5000
+       depends_on:
+          logstash:
+             condition: service_started
+       restart: always
+
+    logstash:
+       extends:
+          file: common.yml
+          service: logstash
+       volumes:
+          - ./logstash.conf:/etc/logstash.conf
+       links:
+          - elasticsearch
+       environment:
+          LOGSPOUT: ignore
+       command: -f /etc/logstash.conf
+       depends_on:
+          elasticsearch:
+             condition: service_healthy
+       restart: always
+
+    elasticsearch:
+       extends:
+          file: common.yml
+          service: elasticsearch
+       ports:
+          - "9200:9200"
+          - "9300:9300"
+       volumes:  
+          - ./es_data:/usr/share/elasticsearch/data
+       environment:
+          LOGSPOUT: ignore
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.enrollment.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+          TAKE_FILE_OWNERSHIP: 1
+       healthcheck:
+          test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+          interval: 10s
+          timeout: 5s
+          retries: 5
+          start_period: 20s
+
+    kibana:
+       extends:
+          file: common.yml
+          service: kibana
+       ports:
+          - "5601:5601"
+       environment:
+          LOGSPOUT: ignore
+          ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+       links:
+          - elasticsearch
+       depends_on:
+          elasticsearch:
+             condition: service_healthy
 

@@ -38,7 +38,9 @@ def mainpage():
 def get_identicon(name):
    name = html.escape(name, quote=True)
    image = cache.get(name)
-   if image is None:
+   if image:
+      print("From cache", flush=True)
+   else:
       print("Cache miss", flush=True)
       r = requests.get('http://dnmonster:8080/monster/' + name + '?size=360')
       image = r.content
