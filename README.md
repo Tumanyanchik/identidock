@@ -1,107 +1,118 @@
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=jenkins&logoColor=white)
+![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
+![ELK](https://img.shields.io/badge/ELK-005571?style=for-the-badge&logo=elastic-stack&logoColor=white)
+
 # Identidock
 
-Приложение генерирует уникальное изображение (монстрика) на основе введённой пользователем строки.
+Приложение генерирует уникальное изображение (монстрика)<br>
+на основе введённой пользователем строки.<br>
+![Пример изображения](./screenshots/screenshot1.png)<br><br>
 
 ---
 ## Как запускать
-Для полноценной работы `identidock` требуются также сервисы `dnmonster` и `Redis`, `nginx`.<br>
-Самый простой способ запуска приложения - выполнить `git clone`.<br>
-Перейти в каталог identiproxy и выполнить сборку `docker build -t proxy:1.0 .` .<br>
-Поправить  **`docker-compose.yml`** файл, указав актуальный IP адрес для переменной `NGINX_HOST`<br> 
-Далее выполнить команду: `docker-compose up -d`<br>
-<br>
-<br>
-Или вместо этого вы можете выполнить `deploy.sh` скрипт, **предварительно указав верные переменные** (рекомендую использовать первый способ)<br>
-<br>
-Проверить работу можно через браузер или командой: `curl http://localhost:80`
+1. Выполнить `git clone`.<br>
+2. Перейти в каталог identiproxy и выполнить сборку `docker build -t proxy:1.0 .` .<br>
+3. Поправить  **`docker-compose.yml`** файл,<br>
+указав актуальный IP адрес для переменной `NGINX_HOST`<br>
+4. Выполнить команду: `docker-compose up -d`<br>
+Или вместо этого вы можете выполнить `deploy.sh` скрипт,<br>
+**предварительно указав верные переменные**<br>
+(рекомендую использовать первый способ)<br>
 
-### Ansible
-Также можно запустить на несколько целевых машинах используя ansible.<br>
-Для этого необходимо установить asnible на целевую машину - хост.<br>
-Прокинуть ssh ключи на целевые машины (где должно рабоать приложение), скорректировать файл hosts (inventory) и актуализировав `NGINX_HOST` в `identidock.yml`.<br>
+### Проверка работоспособности
+
+- Приложение: http://localhost:80
+- Kibana: http://localhost:5601
+- Jenkins: http://localhost:8090
+- Elasticsearch: http://localhost:9200
+
+---
+### Технологии и инструменты
+Работа основана на материале книги "Использование Docker".<br>
+
+| Категория | Технологии |
+|-----------|-----------|
+| Языки | Python, Bash |
+| Веб-фреймворк | Flask |
+| Контейнеризация | Docker, Docker Compose |
+| CI/CD | Jenkins, GitHub |
+| Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout |
+| Оркестрация | Ansible |
+| Базы данных | Redis |
+| Веб-сервер | Nginx, uWSGI |
+
+***Сборка и запуск python приложения*** (identidock.py) в Docker-контейнере.<br>
+Приложение написано на *Flask*. В качестве сервера используется *uWSGI*.<br><br>
+
+***DEV/UNIT/PROD*** скрипт cmd.sh определяет в каком окружении будет <br>
+запускаться приложение.<br><br>
+
+***CI/CD pipeline*** использован *Jenkins*.<br>
+Использован подход Continuous Deployment. Задача проверяет репозиторий GitHub.<br>
+Если в коде приложения/docker файлах есть изменения -> поднимаются контейнеры<br>
+в тестовом окружении и запускаются тесты.<br>
+Если тесты прошли образы заливаются в репозиторий DockerHub.<br>
+При запуске приложения берутся образы из DockerHub и происходит сборка<br>
+в PROD окружении.<br><br>
+
+![Общая цепочка взаимодействия](./screenshots/screenshot.png)<br><br>
+
+***Мониторинг логов*** использован стек *ELK*.<br>
+*Logspout* - собирает логи всех приложение.<br>
+*Logstash* - фильтрует логи.<br>
+*Elasticsearch* - хранит логи, создает индексы для быстрого поиска.<br>
+*Kibana* - отображает логи для анализа.<br>
+
+![Пример мониторинга](./screenshots/screenshot3.png)<br><br>
+
+***Настройка на нескольких хостах*** использован *Ansible*.<br>
+Необходимо установить ansible на целевую машину - хост.<br>
+Прокинуть ssh ключи на целевые машины (target, где должно рабоать приложение),<br>
+скорректировать файл hosts (inventory) и актуализировав `NGINX_HOST`<br>
+в `identidock.yml`.<br>
 Далее можно будет вызвать:
 
 ```bash
 ansible-playbook -i hosts identidock.yml
-``` 
-
-### DevOps: путь самурая через Connection refused
-Я использовал этот репозиторий для изучения DevOps-практик. Так как без Docker невозможно представить работу DevOps, начнем именно с него. Ниже приведено описание проделанной работы, основанное на материале книги "Использование докер". 
-
-1. Шаг - ***Сборка и запуск python приложения*** (identidock.py) в Docker-контейнере.
-    Приложение написано на *Flask*. В качестве сервера используется *uWSGI*.
-2. Шаг - ***Хотелось бы использовать один образ для разработки и отладки***, а также изменять набор параметров. Решение - добавление скрипта cmd.sh:
-
-```bash
-#!/bin/bash
-set -e
-
-if [ "$ENV" = 'DEV' ]; then
-   echo "Running Development Server" # Запуск сервера для разработки
-   exec python "identidock.py"
-elif [ "$ENV" = 'UNIT' ]; then
-   echo "Running Unit Tests"
-   exec python "tests.py"
-else
-   echo "Running Production Server" # Запуск сервера для эксплуатации
-   exec uwsgi --ini /app/uwsgi.ini
-fi
-
 ```
+<br>Приложение будет развернуто на target хостах.
 
-В зависимости от переменной ENV запускает веб-сервер в соответсвующем режиме: разработки/отладки (DEV), тестирования (UNIT), эксплуатации (PROD). 
-
-Для упрощения конфигурирования среды и связи контейнеров создан **docker-compose.yml**
-
-3. Шаг - Входные данные обладают свойством идемпотентности (для одинакового текста генерируется одинаковая картинка), логично встает вопрос ***кэширования данных***. **Redis** является стандартом => разворачиваем новый контейнер, обновляем связи между контейнерами в docker-compose.
-
-4. Шаг - ***Распространение образов***. В книге описывается организация собственного реестра, но этот шаг я решил пропустить, потому что: 
-    - Есть *Docker Hub* и еще несколько бесплатных сервисов, которые позволяют зайти с любого устройства, авторизоваться и сделать pull своих образов. Собственный же реестр предполагает квест по созданию и распространению TLS сертификата.
-    - В Docker Hub имеется графический интерфейс для взаимодействия с любыми образами.
-    - Отсутствует необходимость в приватных образах.
-    - На самый крайний случай есть docker export/import и save/load.
-
-5. Шаг - ***Создаем CI/CD pipeline***. Добавляем несколько unit тестов приложения для проверки функциональных возможностей и создаем контейнер ***Jenkins***. Автор предлагает организовать работу так, чтобы Jenkins сам мог собирать образы. Однако подход «иметь готовую среду, в которой выполняются дальнейшие операции» кажется более надёжным. Технологию Docker-in-Docker отвергаем, т.к. запускать контейнер в привилегированном режиме == удалить свою основную систему, скомпрометировать все данные, вызвать мировой кризис... выбираем *Socket Mounting*.<br><br>Полную процедуру не описываю, но важно, что мы создаем *контейнер данных* для постоянного хранения конфигурации:
-
-```bash
-docker build -t identijenk .
-docker run --name jenkins-data identijenk echo "Jenkins Data Container"
-``` 
-Этот контейнер данных нужен только для того, чтобы использовать--volumes-from при запуске Jenkins.
-
-```bash
-docker run -d --name jenkins -p 8080:8080 --volumes-from jenkins-data \
-    -v /var/run/docker.sock:/var/run/docker.sock identijenk
-```
-
-Дальнейшая настройка идет уже в графическом интерфейсе `http://localhost:8080`
-
-Настраиваем цепочку взаимодействия, которая выглядит примерно так:
-
-![Цепочка взаимодействия](./images/screenshot.png)
-
-***Резервное копирование*** 
-
-```bash
-# Создание бэкапа
-docker run --volumes-from jenkins-data -v $(pwd):/backup \
-    debian tar -zcvf /backup/jenkins-data-backup.tar.gz /var/jenkins_home
-
-# Восстановление (пример)
-docker run --name jenkins-data2 identijenk echo "New Jenkins Data Container"
-docker run --volumes-from jenkins-data2 -v $(pwd):/backup \
-    debian tar -xzvf /backup/jenkins-data-backup.tar.gz -C /
-```
-
-6. Шаг - ***Прячемся за балансировщик***. Для повышения отказоустойчивости и распределения нагрузки добавляем балансировщик ***nginx***.
+***Ротирование логов*** использован logrotate Linux.<br>
+Если не настроено ротирование логов для Docker,<br>
+то очень быстро закончится место на диске.<br>
+В ОС Linux рекомендуется выполнить скрипт<br>
+docker_logrotate c root правами.
 
 ---
-## __Структура файлов__ 
-_identidock_ - Каталог приложения identidock<br> 
-_identijenk_ - Каталог для Jenkins<br>
-_identiproxy_ - Каталог для балансировщика nginx<br>
+### Структура файлов
+- **identidock/** — исходный код Flask-приложения
+- **identijenk/** — конфигурация Jenkins
+- **identiproxy/** — конфигурация Nginx (балансировщик)
+- **es_data/** — данные Elasticsearch (persistent volume)
+- **ansible_configuration/** — Ansible плейбуки для деплоя
+- **screenshots/** — скриншоты для README
+- **common.yml** — версии образов для всех сервисов
+- **logstash.conf** — настройка парсинга логов
+- **docker_logrotate** — скрипт ротации логов Docker
 
 ---
-## __Ссылки__
+### Известные проблемы и их решение
+
+**Windows ошибка**: "exec /cmd.sh: no such file or directory".<br>
+**Причина:** CRLF окончания строк в скриптах.<br>
+**Решение:** Конвертируйте скрипты в формат LF<br>
+
+```powershell
+(Get-Content cmd.sh) -join "`n" | Set-Content -NoNewline cmd.sh
+```
+
+***Ошибка доступа к Docker Hub***
+**Причина:** Не настроены credentials для Jenkins.<br>
+**Решение:** Укажите свои логин/пароль и репозиторий в Jenkins-задаче.<br>
+<br>
+
+---
+## Ссылки
 "Using Docker" by Adrian Mouat - https://files.znu.edu.ua/files/Bibliobooks/Inshi70/0051001.pdf
-
