@@ -3,6 +3,11 @@
 ![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=jenkins&logoColor=white)
 ![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
 ![ELK](https://img.shields.io/badge/ELK-005571?style=for-the-badge&logo=elastic-stack&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![cAdvisor](https://img.shields.io/badge/cAdvisor-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![Alertmanager](https://img.shields.io/badge/Alertmanager-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+
 
 # Identidock
 
@@ -17,9 +22,14 @@
 3. Поправить  **`docker-compose.yml`** файл,<br>
 указав актуальный IP адрес для переменной `NGINX_HOST`<br>
 4. Выполнить команду: `docker-compose up -d`<br>
-Или вместо этого вы можете выполнить `deploy.sh` скрипт,<br>
-**предварительно указав верные переменные**<br>
-(рекомендую использовать первый способ)<br>
+
+Для настройки CI\CD (Jenkins)
+5. Перейти в каталог identijenk и выполнить сборку `docker-compose up -d`.<br>
+Далее потребуется настроить задачу. Пример для shell скрипта расположен в каталоге identijenk.<br><br>
+
+Для настройки сбора метрик (cAdvisor + Prometheus)<br>
+6. Перейти в каталог metrics и выполнить сборку `docker-compose up -d`
+
 
 ### Проверка работоспособности
 
@@ -27,6 +37,8 @@
 - Kibana: http://localhost:5601
 - Jenkins: http://localhost:8090
 - Elasticsearch: http://localhost:9200
+- cAdvisor: http://localhost:8085
+- Prometheus: htpp://localhost:9090
 
 ---
 ### Технологии и инструменты
@@ -39,6 +51,7 @@
 | Контейнеризация | Docker, Docker Compose |
 | CI/CD | Jenkins, GitHub |
 | Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout |
+| Сбор метрик | cAdvisor, Prometheus, Grafana, Alertmanager |
 | Оркестрация | Ansible |
 | Базы данных | Redis |
 | Веб-сервер | Nginx, uWSGI |
@@ -60,12 +73,19 @@
 ![Общая цепочка взаимодействия](./screenshots/screenshot.png)<br><br>
 
 ***Мониторинг логов*** использован стек *ELK*.<br>
-*Logspout* - собирает логи всех приложение.<br>
+*Logspout* - собирает логи всех приложений на хосте.<br>
 *Logstash* - фильтрует логи.<br>
 *Elasticsearch* - хранит логи, создает индексы для быстрого поиска.<br>
 *Kibana* - отображает логи для анализа.<br>
 
 ![Пример мониторинга](./screenshots/screenshot3.png)<br><br>
+
+***Сбор метрик*** использована связка Prometheus + Grafana + Alertmanager.<br>
+*cAdvisor* - собирает метрики всех контейнеров на хосте (CPU, память, сеть, диски)<br>
+*Prometheus* - хранение и анализ временных рядов метрик, язык запросов PromQL<br>
+*Grafana* - визулизация метрик, построение дашбордов<br>
+*Alertmanager* - обработка и отправка алертов
+
 
 ***Настройка на нескольких хостах*** использован *Ansible*.<br>
 Необходимо установить ansible на целевую машину - хост.<br>
@@ -83,19 +103,19 @@ ansible-playbook -i hosts identidock.yml
 Если не настроено ротирование логов для Docker,<br>
 то очень быстро закончится место на диске.<br>
 В ОС Linux рекомендуется выполнить скрипт<br>
-docker_logrotate c root правами.
+docker_logrotate.sh c root правами.
 
 ---
 ### Структура файлов
-- **identidock/** — исходный код Flask-приложения
-- **identijenk/** — конфигурация Jenkins
-- **identiproxy/** — конфигурация Nginx (балансировщик)
-- **es_data/** — данные Elasticsearch (persistent volume)
-- **ansible_configuration/** — Ansible плейбуки для деплоя
-- **screenshots/** — скриншоты для README
-- **common.yml** — версии образов для всех сервисов
-- **logstash.conf** — настройка парсинга логов
-- **docker_logrotate** — скрипт ротации логов Docker
+- **identidock/** - исходный код Flask-приложения
+- **identijenk/** - конфигурация Jenkins
+- **identiproxy/** - конфигурация Nginx (балансировщик)
+- **monitoring/** - конфигируция ELK (настройка парсинга логов, данные ELK, Logspout)
+- **metrics/** - конфигурация метрик (cAdvisor, Prometheus, Grafana, Alertmanager)
+- **usefull_scripts/** - опциональные скрипты для разового запуска
+- **ansible_configuration/** - Ansible плейбуки для деплоя
+- **screenshots/** - скриншоты для README
+- **common.yml** - версии образов для всех сервисов
 
 ---
 ### Известные проблемы и их решение

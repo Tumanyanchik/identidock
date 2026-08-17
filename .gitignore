@@ -1,4 +1,5 @@
-es_data/
+monitoring/es_data/
+metrics/prometheus_data/
 
 *.log
 *.pid
