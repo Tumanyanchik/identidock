@@ -67,6 +67,34 @@
 | Базы данных | Redis |
 | Веб-сервер | Nginx, uWSGI |
 
+<br><br>
+***Схема работы приложения***
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Nginx
+    participant Identidock
+    participant Redis
+    participant Dnmonster
+
+    Client->>Nginx: GET /monster/name
+    Nginx->>Identidock: Прокси запрос
+    Identidock->>Redis: Проверка кэша
+    alt Картинка есть в кэше
+        Redis-->>Identidock: Возвращает картинку
+        Identidock-->>Nginx: Ответ с картинкой
+        Nginx-->>Client: Отдаёт картинку
+    else Картинки нет
+        Identidock->>Dnmonster: Запрос на генерацию
+        Dnmonster-->>Identidock: Возвращает сгенерированное изображение
+        Identidock->>Redis: Сохраняет в кэш
+        Identidock-->>Nginx: Ответ с картинкой
+        Nginx-->>Client: Отдаёт картинку
+    end
+```
+<br>
+
 ***Сборка и запуск python приложения*** (identidock.py) в Docker-контейнере.<br>
 Приложение написано на *Flask*. В качестве сервера используется *uWSGI*.<br><br>
 
@@ -81,7 +109,38 @@
 При запуске приложения берутся образы из DockerHub и происходит сборка<br>
 в PROD окружении.<br><br>
 
-![Общая цепочка взаимодействия](./screenshots/screenshot.png)<br><br>
+```mermaid
+flowchart TD
+    A[Запуск Jenkins-задачи] --> B[Установка COMPOSE_ARGS и TEST_PORT]
+    B --> C{Есть ли предыдущий успешный коммит?}
+    C -- Да --> D[git diff с PREVIOUS_SUCCESSFUL_COMMIT]
+    C -- Нет --> E[git diff с HEAD~1]
+    D --> F{Обнаружены изменения?}
+    E --> F
+    F -- Нет --> G[Пропуск сборки]
+    F -- Да --> H[Сборка Docker-образа с --no-cache]
+    H --> I[Поднятие сервисов: identidock, dnmonster, redis]
+    G --> I
+    I --> J[Ожидание 5 сек]
+    J --> K[Запуск Unit-тестов в контейнере]
+    K --> L{Тесты успешны?}
+    L -- Нет --> M[Завершение с ошибкой]
+    L -- Да --> N[Запуск DEV-контейнера для health check]
+    N --> O[Ожидание 5 сек]
+    O --> P[curl к /monster/bla]
+    P --> Q{HTTP код 200?}
+    Q -- Нет --> R[Завершение с ошибкой health check]
+    Q -- Да --> S{Были изменения?}
+    S -- Нет --> T[Пропуск пуша]
+    S -- Да --> U[Логин в Docker Hub]
+    U --> V[Тегирование образа]
+    V --> W[Пуш образа в Docker Hub]
+    W --> X[Завершение успехом]
+    T --> X
+    M --> Z[Cleanup]
+    R --> Z
+    X --> Z
+```
 
 ***Мониторинг логов*** использован стек *ELK*.<br>
 *Logspout* - собирает логи всех приложений на хосте.<br>
