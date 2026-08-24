@@ -28,6 +28,7 @@ services:
     volumes:
       - ./prometheus.conf:/prometheus.conf:ro
       - ./prometheus_data:/prometheus
+      - ./alerts.yml:/alerts.yml:ro
     command:
       - '--config.file=/prometheus.conf'
       - '--storage.tsdb.path=/prometheus/data'
@@ -43,10 +44,85 @@ services:
         reservations:
           memory: 192M
 
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  alertmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.tmpl:/etc/alertmanager/config.yml.tmpl:ro
+      - ./alertmanager_data:/alertmanager
+    environment:
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_AUTH_USERNAME=${SMTP_AUTH_USERNAME}
+      - SMTP_AUTH_PASSWORD=${SMTP_AUTH_PASSWORD}
+      - SMTP_TO=${SMTP_TO}
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
 networks:
   monitoring:
     driver: bridge
 
 volumes:
   prometheus_date:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
     driver: local

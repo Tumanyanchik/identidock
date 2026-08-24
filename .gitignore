@@ -1,5 +1,8 @@
 monitoring/es_data/
 metrics/prometheus_data/
+metrics/grafana_data/
+metrics/alertmanager_data/
 
+*.env
 *.log
 *.pid

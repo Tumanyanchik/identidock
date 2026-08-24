@@ -1,12 +1,12 @@
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=jenkins&logoColor=white)
-![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
-![ELK](https://img.shields.io/badge/ELK-005571?style=for-the-badge&logo=elastic-stack&logoColor=white)
-![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
-![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
-![cAdvisor](https://img.shields.io/badge/cAdvisor-4285F4?style=for-the-badge&logo=google&logoColor=white)
-![Alertmanager](https://img.shields.io/badge/Alertmanager-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=flat&logo=jenkins&logoColor=white)
+![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=flat&logo=ansible&logoColor=white)
+![ELK](https://img.shields.io/badge/ELK-005571?style=flat&logo=elastic-stack&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat&logo=grafana&logoColor=white)
+![cAdvisor](https://img.shields.io/badge/cAdvisor-4285F4?style=flat&logo=google&logoColor=white)
+![Alertmanager](https://img.shields.io/badge/Alertmanager-E6522C?style=flat&logo=prometheus&logoColor=white)
 
 
 # Identidock
@@ -23,12 +23,19 @@
 указав актуальный IP адрес для переменной `NGINX_HOST`<br>
 4. Выполнить команду: `docker-compose up -d`<br>
 
-Для настройки CI\CD (Jenkins)
+**Для настройки CI\CD** (Jenkins)<br>
 5. Перейти в каталог identijenk и выполнить сборку `docker-compose up -d`.<br>
-Далее потребуется настроить задачу. Пример для shell скрипта расположен в каталоге identijenk.<br><br>
+Далее потребуется настроить задачу в интерфейсе. Пример для shell скрипта расположен в каталоге identijenk.<br>
 
-Для настройки сбора метрик (cAdvisor + Prometheus)<br>
-6. Перейти в каталог metrics и выполнить сборку `docker-compose up -d`
+**Для настройки мониторинга** (ELK + logspout)<br>
+6. Перейти в каталоги monitoring и выполнить сборку `docker-compose up -d`.<br>
+Далее потребуется выбрать индекс в интерфейсе Elasticsearch
+
+**Для настройки сбора метрик и визуализации** (cAdvisor + Prometheus + Alertmanager + Node Exporter + Grafana).<br>
+7. Перейти в каталог metrics переименовать файл `.env_template` в `.env` и задать переменные. <br> Выполнить сборку `docker-compose up -d` .<br><br>
+Далее потребуется выбрать источники данных/настроить dashboards в интерфейсе Grafana.<br>
+Для Node Exporter можно выбрать 1860.<br>
+Для cAdvisor можно выбрать 14282.<br>
 
 
 ### Проверка работоспособности
@@ -38,7 +45,11 @@
 - Jenkins: http://localhost:8090
 - Elasticsearch: http://localhost:9200
 - cAdvisor: http://localhost:8085
-- Prometheus: htpp://localhost:9090
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
+- Alertmanager: http://192.168.30.53:9093 <br>
+Если alertов нет, для проверкb можно сгенерировать тестовый через api: <br>
+`curl -X POST -H "Content-Type: application/json" -d '[{"labels":{"alertname":"test","severity":"critical"},"annotations":{"summary":"Test alert","description":"This is a test"}}]' http://localhost:9093/api/v2/alerts`
 
 ---
 ### Технологии и инструменты
@@ -51,7 +62,7 @@
 | Контейнеризация | Docker, Docker Compose |
 | CI/CD | Jenkins, GitHub |
 | Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout |
-| Сбор метрик | cAdvisor, Prometheus, Grafana, Alertmanager |
+| Сбор метрик | cAdvisor, Prometheus, Grafana, Alertmanager, Node Exporter |
 | Оркестрация | Ansible |
 | Базы данных | Redis |
 | Веб-сервер | Nginx, uWSGI |
@@ -86,6 +97,8 @@
 *Grafana* - визулизация метрик, построение дашбордов<br>
 *Alertmanager* - обработка и отправка алертов
 
+![Пример визуализации в Grafana для cAdvisor](./screenshots/screenshot4.png)<br><br>
+![Пример alerts на почту](./screenshots/screenshot5.png)<br><br>
 
 ***Настройка на нескольких хостах*** использован *Ansible*.<br>
 Необходимо установить ansible на целевую машину - хост.<br>
@@ -115,7 +128,7 @@ docker_logrotate.sh c root правами.
 - **usefull_scripts/** - опциональные скрипты для разового запуска
 - **ansible_configuration/** - Ansible плейбуки для деплоя
 - **screenshots/** - скриншоты для README
-- **common.yml** - версии образов для всех сервисов
+- **common.yml** - версии образов для сервисов приложения
 
 ---
 ### Известные проблемы и их решение
