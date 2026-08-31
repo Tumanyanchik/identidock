@@ -1,4 +1,3 @@
-
 COMPOSE_ARGS="-f docker-compose.yml -p jenkins"
 TEST_PORT=5001
 
@@ -28,7 +27,7 @@ if [ -n "${CHANGED}" ]; then
     echo "✅ Changes detected:"
     echo "${CHANGED}"
 else
-    echo "ℹ️ No changes detected"
+    echo "ℹ No changes detected"
 fi
 
 # Очистка
@@ -38,10 +37,10 @@ sudo docker rm -f jenkins-identidock-test || true
 
 # Сборка (только если есть изменения)
 if [ -n "${CHANGED}" ]; then
-    echo "🏗️ Building new image..."
+    echo "🏗 Building new image..."
     sudo docker-compose ${COMPOSE_ARGS} build --no-cache
 else
-    echo "ℹ️ Skipping build (no changes)"
+    echo "ℹ Skipping build (no changes)"
 fi
 
 # Запуск
@@ -54,11 +53,12 @@ sudo docker run --rm --network jenkins_default -e ENV=UNIT jenkins-identidock
 ERR=$?
 
 if [ ${ERR} -eq 0 ]; then
-	echo "Starting identidock in DEV mode for health check..."
-    sudo docker run -d --rm --name jenkins-identidock-test --network jenkins_default -e ENV=DEV -p ${TEST_PORT}:5000 jenkins-identidock
+        echo "Starting identidock in DEV mode for health check..."
+    sudo docker run -d --rm --name jenkins-identidock-test --network jenkins_default \
+         -e ENV=DEV -e REDIS_HOST=jenkins-redis-1 -p ${TEST_PORT}:5000 jenkins-identidock
     
     sleep 5
-	HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+        HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
     CONTAINER_ID=$(sudo docker ps -aqf "name=jenkins-identidock-test" | head -1)
     CODE=$(curl -sL -w "%{http_code}" "http://${HOST_IP}:${TEST_PORT}/monster/bla" -o /dev/null)
     IMAGE_ID=$(sudo docker inspect ${CONTAINER_ID} -f '{{.Image}}')
@@ -79,7 +79,7 @@ if [ ${ERR} -eq 0 ]; then
             
             echo "✅ Pushed!"
         else
-            echo "ℹ️ No changes - skipping push"
+            echo "ℹ No changes - skipping push"
         fi
         
         exit 0
@@ -91,3 +91,4 @@ else
     echo "❌ Unit tests failed"
     exit ${ERR}
 fi
+
