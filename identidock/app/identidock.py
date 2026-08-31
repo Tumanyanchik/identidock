@@ -4,6 +4,7 @@ import hashlib
 import redis
 import html
 import os
+import logging
 
 
 app = Flask(__name__)
@@ -11,6 +12,8 @@ cache = redis.StrictRedis(host='redis', port=6379, db=0)
 salt = "UNIQUE_SALT"
 default_name = 'Tumanyan Artem'
 debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -41,9 +44,9 @@ def get_identicon(name):
    name = html.escape(name, quote=True)
    image = cache.get(name)
    if image:
-      print("From cache", flush=True)
+      logger.info("From cache")
    else:
-      print("Cache miss", flush=True)
+      logger.info("Cache miss")
       r = requests.get('http://dnmonster:8080/monster/' + name + '?size=360')
       image = r.content
       cache.set(name, image)
