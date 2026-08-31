@@ -3,12 +3,14 @@ import requests
 import hashlib
 import redis
 import html
+import os
 
 
 app = Flask(__name__)
 cache = redis.StrictRedis(host='redis', port=6379, db=0)
 salt = "UNIQUE_SALT"
 default_name = 'Tumanyan Artem'
+debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -48,5 +50,5 @@ def get_identicon(name):
    return Response(image, mimetype='image/png')
 
 if __name__=='__main__':
-   app.run(debug=True, host='0.0.0.0')
+   app.run(debug=debug_mode, host='0.0.0.0')
    
