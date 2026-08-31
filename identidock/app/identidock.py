@@ -8,12 +8,14 @@ import logging
 
 
 app = Flask(__name__)
-cache = redis.StrictRedis(host='redis', port=6379, db=0)
+redis_host = os.getenv('REDIS_HOST', 'redis')
+cache = redis.StrictRedis(host=redis_host, port=6379, db=0)
 salt = "UNIQUE_SALT"
 default_name = 'Tumanyan Artem'
 debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
+logger = logging.getLogger(__name__)
 
 
 @app.route('/', methods=['GET', 'POST'])
