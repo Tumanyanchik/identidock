@@ -168,11 +168,11 @@ flowchart TD
 ![Пример мониторинга](./screenshots/screenshot3.png)<br><br>
 
 ***Мониторинг инфраструктуры*** использован *Zabbix*. <br>
-*Zabbix Agent* - установлен на хосте/ах, отправляет метрики.
-*Zabbix Web* - отображает собранные метрики
+*Zabbix Agent* - установлен на хосте/ах, отправляет метрики. <br>
+*Zabbix Web* - отображает собранные метрики. <br>
 
 ![Пример вузуализации для Zabbix](./screenshots/screenshot6.png)<br><br>
-![Пример alert на почту](./screenshots/screenshot7.png)<br><br>
+![Пример alert на почту](./screenshots/screenshot7.png)<br>
 
 ***Сбор метрик*** использована связка Prometheus + Grafana + Alertmanager.<br>
 *cAdvisor* - собирает метрики всех контейнеров на хосте (CPU, память, сеть, диски)<br>
@@ -181,7 +181,7 @@ flowchart TD
 *Alertmanager* - обработка и отправка алертов
 
 ![Пример визуализации в Grafana для cAdvisor](./screenshots/screenshot4.png)<br><br>
-![Пример alerts на почту](./screenshots/screenshot5.png)<br><br>
+![Пример alerts на почту](./screenshots/screenshot5.png)<br>
 
 ***Настройка на нескольких хостах*** использован *Ansible*.<br>
 Необходимо установить ansible на целевую машину - хост.<br>
