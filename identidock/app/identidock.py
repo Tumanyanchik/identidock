@@ -51,7 +51,7 @@ def get_identicon(name):
       logger.info("Cache miss")
       r = requests.get('http://dnmonster:8080/monster/' + name + '?size=360')
       image = r.content
-      cache.set(name, image)
+      cache.set(name, image, ex=3600)
    return Response(image, mimetype='image/png')
 
 if __name__=='__main__':

@@ -43,6 +43,13 @@ services:
        extends:
           file: common.yml
           service: redis
+       volumes:
+          - redis_data:/data
+       command:
+          redis-server --appendonly yes --appendfsync everysec \
+             --save 900 1 --save 300 10 --save 60 10000 \
+             --maxmemory 100mb
+             --maxmemory-policy volatile-lru
        deploy:
           resources:
              limits:
@@ -50,3 +57,5 @@ services:
              reservations:
                 memory: 64M
 
+volumes:
+  redis_data:
