@@ -1,0 +1,76 @@
+services:
+  zabbix-postgres:
+    image: postgres:15
+    container_name: zabbix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ZABBIX_DB_USER:-zabbix}
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD:-zabbix}
+      POSTGRES_DB: ${ZABBIX_DB_NAME:-zabbix}
+    volumes:
+      - zabbix-db:/var/lib/postgresql/data
+    networks:
+      - zabbix-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-6.4-latest
+    container_name: zabbix-server
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-postgres
+      POSTGRES_USER: ${ZABBIX_DB_USER:-zabbix}
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD:-zabbix}
+      POSTGRES_DB: ${ZABBIX_DB_NAME:-zabbix}
+    ports:
+      - "10051:10051"
+    networks:
+      zabbix-net:
+        ipv4_address: 172.20.0.3
+    depends_on:
+      - zabbix-postgres
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-6.4-latest
+    container_name: zabbix-web
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-postgres
+      POSTGRES_USER: ${ZABBIX_DB_USER:-zabbix}
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD:-zabbix}
+      POSTGRES_DB: ${ZABBIX_DB_NAME:-zabbix}
+      ZBX_SERVER_HOST: zabbix-server
+    ports:
+      - "8070:8080"
+    networks:
+      - zabbix-net
+    depends_on:
+      - zabbix-server
+      - zabbix-postgres
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+networks:
+  zabbix-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  zabbix-db:

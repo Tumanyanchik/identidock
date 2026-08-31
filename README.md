@@ -7,7 +7,8 @@
 ![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat&logo=grafana&logoColor=white)
 ![cAdvisor](https://img.shields.io/badge/cAdvisor-4285F4?style=flat&logo=google&logoColor=white)
 ![Alertmanager](https://img.shields.io/badge/Alertmanager-E6522C?style=flat&logo=prometheus&logoColor=white)
-
+![Zabbix](https://img.shields.io/badge/Zabbix-FF0000?style=flat&logo=zabbix&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 
 # Identidock
 
@@ -27,12 +28,27 @@
 5. Перейти в каталог identijenk и выполнить сборку `docker-compose up -d`.<br>
 Далее потребуется настроить задачу в интерфейсе. Пример для shell скрипта расположен в каталоге identijenk.<br>
 
-**Для настройки мониторинга** (ELK + logspout)<br>
+**Для настройки мониторинга приложения** (ELK + logspout)<br>
 6. Перейти в каталоги monitoring и выполнить сборку `docker-compose up -d`.<br>
 Далее потребуется выбрать индекс в интерфейсе Elasticsearch
 
+**Для настройки мониторинга инфраструктуры** (Zabbix Server + PostgreSQL + Web)<br>
+7. Перейти в каталог monitoring/zabbix переименовать файл `.env_template` в `.env` и задать переменные.<br> 
+Выполнить сборку `docker-compose up -d`.<br>
+Установить zabbix агент на целевой хост:
+```bash
+wget https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu22.04_all.deb
+sudo dpkg -i zabbix-release_6.4-1+ubuntu22.04_all.deb
+sudo apt update
+sudo apt install zabbix-agent -y
+```
+Далее в web-интерфейсе Zabbix http://localhost:8070 (логин: Admin, пароль: zabbix - по умолчанию, далее можно изменить) <br>
+добавить хост с установленным агентом в Data Collection -> Hosts (т.к. zabbix устанавливается в docker, адрес хоста необходим в сети docker).<br>
+Пример команды на хосте: `docker network inspect zabbix-net | grep Gateway`<br>
+В интерефейсе можно также настроить Alerts -> Actions -> Trigger actions и Actions -> Media types для уведомлений<br>
+
 **Для настройки сбора метрик и визуализации** (cAdvisor + Prometheus + Alertmanager + Node Exporter + Grafana).<br>
-7. Перейти в каталог metrics переименовать файл `.env_template` в `.env` и задать переменные. <br> Выполнить сборку `docker-compose up -d` .<br><br>
+8. Перейти в каталог metrics переименовать файл `.env_template` в `.env` и задать переменные. <br> Выполнить сборку `docker-compose up -d` .<br><br>
 Далее потребуется выбрать источники данных/настроить dashboards в интерфейсе Grafana.<br>
 Для Node Exporter можно выбрать 1860.<br>
 Для cAdvisor можно выбрать 14282.<br>
@@ -47,6 +63,7 @@
 - cAdvisor: http://localhost:8085
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000
+- Zabbix: http://localhost:8070
 - Alertmanager: http://192.168.30.53:9093 <br>
 Если alertов нет, для проверкb можно сгенерировать тестовый через api: <br>
 `curl -X POST -H "Content-Type: application/json" -d '[{"labels":{"alertname":"test","severity":"critical"},"annotations":{"summary":"Test alert","description":"This is a test"}}]' http://localhost:9093/api/v2/alerts`
@@ -61,10 +78,10 @@
 | Веб-фреймворк | Flask |
 | Контейнеризация | Docker, Docker Compose |
 | CI/CD | Jenkins, GitHub |
-| Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout |
+| Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout,  Zabbix |
 | Сбор метрик | cAdvisor, Prometheus, Grafana, Alertmanager, Node Exporter |
 | Оркестрация | Ansible |
-| Базы данных | Redis |
+| Базы данных | Redis, PostgreSQL |
 | Веб-сервер | Nginx, uWSGI |
 
 <br><br>
@@ -142,13 +159,20 @@ flowchart TD
     X --> Z
 ```
 
-***Мониторинг логов*** использован стек *ELK*.<br>
+***Мониторинг приложения*** использован стек *ELK*.<br>
 *Logspout* - собирает логи всех приложений на хосте.<br>
 *Logstash* - фильтрует логи.<br>
 *Elasticsearch* - хранит логи, создает индексы для быстрого поиска.<br>
 *Kibana* - отображает логи для анализа.<br>
 
 ![Пример мониторинга](./screenshots/screenshot3.png)<br><br>
+
+***Мониторинг инфраструктуры*** использован *Zabbix*. <br>
+*Zabbix Agent* - установлен на хосте/ах, отправляет метрики.
+*Zabbix Web* - отображает собранные метрики
+
+![Пример вузуализации для Zabbix](./screenshots/screenshot6.png)<br><br>
+![Пример alert на почту](./screenshots/screenshot7.png)<br><br>
 
 ***Сбор метрик*** использована связка Prometheus + Grafana + Alertmanager.<br>
 *cAdvisor* - собирает метрики всех контейнеров на хосте (CPU, память, сеть, диски)<br>
@@ -183,6 +207,7 @@ docker_logrotate.sh c root правами.
 - **identijenk/** - конфигурация Jenkins
 - **identiproxy/** - конфигурация Nginx (балансировщик)
 - **monitoring/** - конфигируция ELK (настройка парсинга логов, данные ELK, Logspout)
+- **monitoring/zabbix** - конфигурация Zabbix
 - **metrics/** - конфигурация метрик (cAdvisor, Prometheus, Grafana, Alertmanager)
 - **usefull_scripts/** - опциональные скрипты для разового запуска
 - **ansible_configuration/** - Ansible плейбуки для деплоя
