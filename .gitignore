@@ -1,4 +1,5 @@
 monitoring/es_data/
+monitoring/es_backups/
 metrics/prometheus_data/
 metrics/grafana_data/
 metrics/alertmanager_data/

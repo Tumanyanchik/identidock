@@ -31,7 +31,7 @@ services:
       - "10051:10051"
     networks:
       zabbix-net:
-        ipv4_address: 172.20.0.3
+        ipv4_address: 172.22.0.3
     depends_on:
       - zabbix-postgres
     deploy:
@@ -69,8 +69,9 @@ networks:
   zabbix-net:
     driver: bridge
     ipam:
+      driver: default
       config:
-        - subnet: 172.20.0.0/24
+        - subnet: 172.22.0.0/24
 
 volumes:
   zabbix-db:

@@ -51,6 +51,7 @@ services:
           - "9300:9300"
        volumes:
           - ./es_data:/usr/share/elasticsearch/data
+          - ./es_backups:/usr/share/elasticsearch/backups
        environment:
           LOGSPOUT: ignore
           discovery.type: single-node
@@ -58,6 +59,7 @@ services:
           xpack.security.enrollment.enabled: false
           ES_JAVA_OPTS: -Xms256m -Xmx256m
           TAKE_FILE_OWNERSHIP: 1
+          path.repo: /usr/share/elasticsearch/backups
        healthcheck:
           test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
           interval: 10s

@@ -167,6 +167,42 @@ flowchart TD
 
 ![Пример мониторинга](./screenshots/screenshot3.png)<br><br>
 
+*Для создания backupов Elasticsearch:*<br>
+1) Создать репозиторий 
+```bash
+curl -X PUT "localhost:9200/_snapshot/my_backup?pretty" \
+  -H 'Content-Type: application/json' -d'
+{
+  "type": "fs",
+  "settings": {
+    "location": "/usr/share/elasticsearch/backups",
+    "compress": true
+  }
+}'
+```
+2) Создать снэпшот 
+```bash
+curl -X PUT "localhost:9200/_snapshot/my_backup/snapshot_1?wait_for_completion=true&pretty"
+```
+
+3) Проверить созданные снэпшоты
+
+```bash
+curl -X GET "localhost:9200/_snapshot/my_backup/_all?pretty"
+```
+
+4) Пример команды для восстановления
+
+```bash
+curl -X POST "localhost:9200/_snapshot/my_backup/snapshot_1/_restore?wait_for_completion=true&pretty" \
+  -H 'Content-Type: application/json' -d'
+{
+  "indices": "logs-generic-default",
+  "include_global_state": true,
+  "ignore_unavailable": true
+}'
+```
+
 ***Мониторинг инфраструктуры*** использован *Zabbix*. <br>
 *Zabbix Agent* - установлен на хосте/ах, отправляет метрики. <br>
 *Zabbix Web* - отображает собранные метрики. <br>
