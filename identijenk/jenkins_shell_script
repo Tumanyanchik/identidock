@@ -1,3 +1,14 @@
+cat > .env <<EOF
+ENV=DEV
+SECRET_KEY=${SECRET_KEY}
+POSTGRES_USER=identidock-user
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=identidock
+POSTGRES_PORT=5432
+EOF
+echo "✅ .env created for CI"
+
+
 COMPOSE_ARGS="-f docker-compose.yml -p jenkins"
 TEST_PORT=5001
 
@@ -5,6 +16,7 @@ cleanup() {
     sudo docker-compose ${COMPOSE_ARGS} stop
     sudo docker-compose ${COMPOSE_ARGS} rm --force -v
     sudo docker rm -f jenkins-identidock-test
+    rm -f .env 
 }
 trap cleanup EXIT
 
@@ -48,14 +60,12 @@ echo "Starting test services (without proxy)..."
 sudo docker-compose ${COMPOSE_ARGS} up -d identidock dnmonster redis postgresql
 sleep 5
 
-echo "Waiting for PostgreSQL..."
-until sudo docker-compose ${COMPOSE_ARGS} exec -T postgresql pg_isready -U identidock; do
-    sleep 2
-done
-sleep 3
-
 # Тесты
-sudo docker run --rm --network jenkins_default -e ENV=UNIT jenkins-identidock
+sudo docker run --rm --network jenkins_default \
+    -e ENV=UNIT \
+    -e SECRET_KEY=${SECRET_KEY} \
+    -e DATABASE_URL=postgresql://identidock-user:${POSTGRES_PASSWORD}@postgresql:5432/identidock \
+    jenkins-identidock
 ERR=$?
 
 if [ ${ERR} -eq 0 ]; then
@@ -64,7 +74,7 @@ if [ ${ERR} -eq 0 ]; then
          -e ENV=DEV -e REDIS_HOST=jenkins-redis-1 -p ${TEST_PORT}:5000 jenkins-identidock
     
     sleep 5
-        HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+    HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
     CONTAINER_ID=$(sudo docker ps -aqf "name=jenkins-identidock-test" | head -1)
     CODE=$(curl -sL -w "%{http_code}" "http://${HOST_IP}:${TEST_PORT}/monster/bla" -o /dev/null)
     IMAGE_ID=$(sudo docker inspect ${CONTAINER_ID} -f '{{.Image}}')
