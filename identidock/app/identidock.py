@@ -1,13 +1,48 @@
-from flask import Flask, Response, request
-import requests
+from flask import Flask, Response, request, render_template
+from flask_login import login_required, current_user
 import hashlib
-import redis
 import html
 import os
 import logging
+import requests
+import redis
+
+from extensions import db, login_manager, migrate, csrf
+from models import User
+from auth import auth_bp
 
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+
+    secret = os.environ.get('SECRET_KEY')
+    env = os.environ.get('ENV', 'DEV')
+    if not secret:
+        if env == 'PROD':
+            raise RuntimeError('SECRET_KEY обязателен при ENV=PROD')
+        secret = 'dev-fallback-key'
+        logging.warning('SECRET_KEY не задан — использую небезопасный fallback')
+   
+    app.config['SECRET_KEY'] = secret
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['WTF_CSRF_ENABLED'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+    csrf.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Войдите, чтобы продолжить'
+    login_manager.login_message_category = 'warning'
+
+    app.register_blueprint(auth_bp)
+    return app
+
+app = create_app()
+
 redis_host = os.getenv('REDIS_HOST', 'redis')
 cache = redis.StrictRedis(host=redis_host, port=6379, db=0)
 salt = "UNIQUE_SALT"
@@ -28,18 +63,8 @@ def mainpage():
    salted_name = salt + name
    name_hash = hashlib.sha256(salted_name.encode()).hexdigest()
 
-   header = '<html><head><title>Identidock</title></head><body>'
-   body = '''<form method="POST">
-             Hello <input type="text" name="name" value="{0}">
-             <input type="submit" value="submit">
-             </form>
-             <p>You look like a:
-             <img src="/monster/{1}"/>
-             '''.format(name, name_hash)
-   footer = '</body></html>' 
+   return render_template('index.html', name=name, name_hash=name_hash)
    
-   return header + body + footer
-
 
 @app.route('/monster/<name>')
 def get_identicon(name):
@@ -53,6 +78,11 @@ def get_identicon(name):
       image = r.content
       cache.set(name, image, ex=3600)
    return Response(image, mimetype='image/png')
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html')
 
 if __name__=='__main__':
    app.run(debug=debug_mode, host='0.0.0.0')

@@ -7,3 +7,8 @@ metrics/alertmanager_data/
 *.env
 *.log
 *.pid
+
+__pycache__/
+instance/
+.idea/
+.vscode/
