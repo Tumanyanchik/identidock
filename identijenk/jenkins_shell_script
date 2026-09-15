@@ -45,8 +45,14 @@ fi
 
 # Запуск
 echo "Starting test services (without proxy)..."
-sudo docker-compose ${COMPOSE_ARGS} up -d identidock dnmonster redis
+sudo docker-compose ${COMPOSE_ARGS} up -d identidock dnmonster redis postgresql
 sleep 5
+
+echo "Waiting for PostgreSQL..."
+until sudo docker-compose ${COMPOSE_ARGS} exec -T db pg_isready -U identidock; do
+    sleep 2
+done
+sleep 3
 
 # Тесты
 sudo docker run --rm --network jenkins_default -e ENV=UNIT jenkins-identidock
