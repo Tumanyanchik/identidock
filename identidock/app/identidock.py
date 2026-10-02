@@ -53,20 +53,29 @@ logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 logger = logging.getLogger(__name__)
 
 
+def make_name_hash(name: str) -> str:
+    """Единая точка вычисления хэша имени. Используется и в mainpage, и в профиле."""
+    salted_name = salt + name
+    return hashlib.sha256(salted_name.encode()).hexdigest()
+
+
+@app.context_processor
+def inject_helpers():
+    return {'make_name_hash': make_name_hash}
+
+
 @app.route('/', methods=['GET', 'POST'])
 def mainpage():
    name = default_name
 
    if request.method == 'POST':
-      name = html.escape(request.form['name'], quote=True)
+      name = request.form['name']
 
-   salted_name = salt + name
-   name_hash = hashlib.sha256(salted_name.encode()).hexdigest()
-
-   return render_template('index.html', name=name, name_hash=name_hash)
+   return render_template('index.html', name=name, name_hash=make_name_hash(name))
    
 
 @app.route('/monster/<name>')
+@login_required
 def get_identicon(name):
    name = html.escape(name, quote=True)
    image = cache.get(name)
@@ -79,10 +88,18 @@ def get_identicon(name):
       cache.set(name, image, ex=3600)
    return Response(image, mimetype='image/png')
 
+
+@app.route('/healthz')
+def healtz():
+    '''Liveness-check. Проверяет, что контейнер жив'''
+    return {'status': 'ok'}, 200
+
+
 @app.route('/profile')
 @login_required
 def profile():
     return render_template('profile.html')
+
 
 if __name__=='__main__':
    app.run(debug=debug_mode, host='0.0.0.0')

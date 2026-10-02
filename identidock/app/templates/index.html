@@ -2,12 +2,23 @@
 {% block title %}Identidock — генератор{% endblock %}
 {% block content %}
 <h1>Identidock</h1>
-<form method="POST">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  Hello <input type="text" name="name" value="{{ name }}">
-  <input type="submit" value="submit">
-</form>
-<p>You look like a:
-  <img src="/monster/{{ name_hash }}" alt="monster"/>
-</p>
+
+{% if current_user.is_authenticated %}
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    Hello <input type="text" name="name" value="{{ name }}">
+    <input type="submit" value="submit">
+  </form>
+  <p>You look like a:
+    <img src="{{ url_for('get_identicon', name=name_hash) }}" alt="monster"/>
+  </p>
+{% else %}
+  <p>Привет, {{ name }}!</p>
+  <p>
+    Чтобы сгенерировать монстрика, нужно
+    <a href="{{ url_for('auth.login') }}">войти</a>
+    или
+    <a href="{{ url_for('auth.register') }}">зарегистрироваться</a>.
+  </p>
+{% endif %}
 {% endblock %}

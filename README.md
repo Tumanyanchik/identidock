@@ -12,8 +12,8 @@
 
 # Identidock
 
-Приложение генерирует уникальное изображение (монстрика)<br>
-на основе введённой пользователем строки.<br>
+Веб-приложение с авторизацией: зарегистрированный пользователь вводит строку,<br>
+приложение генерирует уникальное изображение (монстрика)<br>
 ![Пример изображения](./screenshots/screenshot1.png)<br><br>
 
 ---
@@ -57,6 +57,7 @@ sudo apt install zabbix-agent -y
 ### Проверка работоспособности
 
 - Приложение: http://localhost:80
+- Health-check (без авторизации): http://localhost:80/healthz → `{"status":"ok"}`
 - Kibana: http://localhost:5601
 - Jenkins: http://localhost:8090
 - Elasticsearch: http://localhost:9200
@@ -92,25 +93,45 @@ sequenceDiagram
     participant Client
     participant Nginx
     participant Identidock
+    participant Postgres
     participant Redis
     participant Dnmonster
 
     Client->>Nginx: GET /monster/name
     Nginx->>Identidock: Прокси запрос
-    Identidock->>Redis: Проверка кэша
-    alt Картинка есть в кэше
-        Redis-->>Identidock: Возвращает картинку
-        Identidock-->>Nginx: Ответ с картинкой
-        Nginx-->>Client: Отдаёт картинку
-    else Картинки нет
-        Identidock->>Dnmonster: Запрос на генерацию
-        Dnmonster-->>Identidock: Возвращает сгенерированное изображение
-        Identidock->>Redis: Сохраняет в кэш
-        Identidock-->>Nginx: Ответ с картинкой
-        Nginx-->>Client: Отдаёт картинку
+    Identidock->>Identidock: @login_required
+
+    alt Пользователь не авторизован
+        Identidock-->>Nginx: 302 /login
+        Nginx-->>Client: Страница входа
+    else Пользователь авторизован
+        Identidock->>Postgres: Загрузка User по session
+        Postgres-->>Identidock: User
+        Identidock->>Redis: Проверка кэша
+        alt Картинка в кэше
+            Redis-->>Identidock: Картинка
+        else Промах
+            Identidock->>Dnmonster: Генерация
+            Dnmonster-->>Identidock: Изображение
+            Identidock->>Redis: Сохранить в кэш
+        end
+        Identidock-->>Nginx: 200 image/png
+        Nginx-->>Client: Картинка
     end
 ```
 <br>
+
+
+***Авторизация и пользователи***
+- `Flask-Login` + сессионная cookie (`HttpOnly`, `SameSite=Lax`).
+- Пароли — `werkzeug.security` (PBKDF2).
+- Хранилище — PostgreSQL, доступ через `Flask-SQLAlchemy`.
+- Миграции — `Flask-Migrate` (Alembic). В `ENV=UNIT` миграции пропускаются
+  (см. `entrypoint.sh`), тесты создают схему через `db.create_all()`.
+- CSRF — `Flask-WTF`; в `ENV=UNIT` отключается.
+- Публичные маршруты: `/`, `/healthz`, `/login`, `/register`.
+- Требуют авторизации: `/monster/<name>`, `/profile`.
+
 
 ***Сборка и запуск python приложения*** (identidock.py) в Docker-контейнере.<br>
 Приложение написано на *Flask*. В качестве сервера используется *uWSGI*.<br><br>
@@ -144,7 +165,7 @@ flowchart TD
     L -- Нет --> M[Завершение с ошибкой]
     L -- Да --> N[Запуск DEV-контейнера для health check]
     N --> O[Ожидание 5 сек]
-    O --> P[curl к /monster/bla]
+    O --> P[curl к /healthz]
     P --> Q{HTTP код 200?}
     Q -- Нет --> R[Завершение с ошибкой health check]
     Q -- Да --> S{Были изменения?}
@@ -240,6 +261,12 @@ docker_logrotate.sh c root правами.
 ---
 ### Структура файлов
 - **identidock/** - исходный код Flask-приложения
+  - **app/identidock.py** - маршруты (`/`, `/monster/<name>`, `/profile`, `/healthz`)
+  - **app/models.py** - модель `User`
+  - **app/auth.py** - блупринт login/register/logout
+  - **app/extensions.py** - `db`, `login_manager`, `migrate`, `csrf`
+  - **app/tests.py** - unit-тесты (в т.ч. проверка `@login_required`)
+  - **app/templates/** - `base.html`, `index.html`, `login.html`, `register.html`, `profile.html`
 - **identijenk/** - конфигурация Jenkins
 - **identiproxy/** - конфигурация Nginx (балансировщик)
 - **monitoring/** - конфигируция ELK (настройка парсинга логов, данные ELK, Logspout)

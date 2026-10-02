@@ -66,19 +66,35 @@ sudo docker run --rm --network jenkins_default \
     -e SECRET_KEY=${SECRET_KEY} \
     -e DATABASE_URL=postgresql://identidock-user:${POSTGRES_PASSWORD}@postgresql:5432/identidock \
     jenkins-identidock
+
 ERR=$?
 
 if [ ${ERR} -eq 0 ]; then
-        echo "Starting identidock in DEV mode for health check..."
-    sudo docker run -d --rm --name jenkins-identidock-test --network jenkins_default \
-         -e ENV=DEV -e REDIS_HOST=jenkins-redis-1 -p ${TEST_PORT}:5000 jenkins-identidock
-    
-    sleep 5
-    HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
-    CONTAINER_ID=$(sudo docker ps -aqf "name=jenkins-identidock-test" | head -1)
-    CODE=$(curl -sL -w "%{http_code}" "http://${HOST_IP}:${TEST_PORT}/monster/bla" -o /dev/null)
-    IMAGE_ID=$(sudo docker inspect ${CONTAINER_ID} -f '{{.Image}}')
-    sudo docker stop jenkins-identidock-test
+    echo "Starting identidock in DEV mode for health check..."
+   	sudo docker run -d --name jenkins-identidock-test --network jenkins_default \
+     	-e ENV=DEV \
+     	-e REDIS_HOST=jenkins-redis-1 \
+     	-e SECRET_KEY=${SECRET_KEY} \
+     	-e DATABASE_URL=postgresql://identidock-user:${POSTGRES_PASSWORD}@postgresql:5432/identidock \
+     	-p ${TEST_PORT}:5000 \
+     	jenkins-identidock
+
+	sleep 10
+
+	# Проверяем, что контейнер не упал
+	CONTAINER_ID=$(sudo docker ps -aqf "name=jenkins-identidock-test" | head -1)
+	if [ -z "${CONTAINER_ID}" ] || [ -z "$(sudo docker ps -q -f name=jenkins-identidock-test)" ]; then
+    	echo "❌ jenkins-identidock-test не запущен. Логи:"
+    	sudo docker logs jenkins-identidock-test 2>&1 || true
+    	sudo docker rm -f jenkins-identidock-test || true
+    	exit 1
+	fi
+
+	HOST_IP=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+	CODE=$(curl -sL -w "%{http_code}" "http://${HOST_IP}:${TEST_PORT}/healthz" -o /dev/null)
+	echo "Health check response: ${CODE}"
+	IMAGE_ID=$(sudo docker inspect ${CONTAINER_ID} -f '{{.Image}}')
+	sudo docker rm -f jenkins-identidock-test
     
     if [ "${CODE}" = "200" ]; then
         echo "✅ All tests passed!"

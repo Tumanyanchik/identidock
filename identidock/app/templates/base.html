@@ -5,9 +5,15 @@
   <title>{% block title %}Identidock{% endblock %}</title>
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #222; }
-    nav { margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+    nav { margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
     nav a { color: #06c; text-decoration: none; margin-right: .8rem; }
     nav a:hover { text-decoration: underline; }
+    .user-link { display: flex; align-items: center; gap: .5rem; text-decoration: none; color: #222; margin-right: .8rem; }
+    .user-link:hover { text-decoration: none; }
+    .user-link:hover b { text-decoration: underline; }
+    .user-link img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd; }
+    .user-link .user-meta { display: flex; flex-direction: column; line-height: 1.1; }
+    .user-link .user-meta small { color: #666; font-size: .75rem; }
     .flash { padding: .5rem 1rem; margin: .5rem 0; border-radius: 4px; }
     .flash-success { background: #d4edda; color: #155724; }
     .flash-danger  { background: #f8d7da; color: #721c24; }
@@ -33,10 +39,16 @@
     <div>
       <a href="{{ url_for('mainpage') }}">Главная</a>
     </div>
-    <div>
+    <div style="display: flex; align-items: center;">
       {% if current_user.is_authenticated %}
-        <b>{{ current_user.username }}</b>
-        <a href="{{ url_for('profile') }}">Профиль</a>
+        <a href="{{ url_for('profile') }}" class="user-link">
+          <img src="{{ url_for('get_identicon', name=make_name_hash(current_user.username)) }}"
+               alt="Аватар {{ current_user.username }}">
+          <span class="user-meta">
+            <b>{{ current_user.username }}</b>
+            <small>{{ current_user.email }}</small>
+          </span>
+        </a>
         <a href="{{ url_for('auth.logout') }}">Выйти</a>
       {% else %}
         <a href="{{ url_for('auth.login') }}">Войти</a>

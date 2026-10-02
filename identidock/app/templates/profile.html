@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Профиль — {{ current_user.username }}{% endblock %}
 {% block content %}
-<h2>Привет, {{ current_user.username }}!</h2>
 
-<table style="border-collapse: collapse;">
+<h2>Профиль</h2>
+
+<table style="border-collapse: collapse; margin-top: 1rem;">
   <tr><td style="padding: .3rem .8rem .3rem 0;"><b>ID:</b></td>            <td>{{ current_user.id }}</td></tr>
+  <tr><td style="padding: .3rem .8rem .3rem 0;"><b>Имя пользователя:</b></td><td>{{ current_user.username }}</td></tr>
   <tr><td style="padding: .3rem .8rem .3rem 0;"><b>Email:</b></td>         <td>{{ current_user.email }}</td></tr>
   <tr><td style="padding: .3rem .8rem .3rem 0;"><b>Статус:</b></td>        <td>{{ 'активен' if current_user.is_active else 'заблокирован' }}</td></tr>
   <tr><td style="padding: .3rem .8rem .3rem 0;"><b>Создан:</b></td>        <td>{{ current_user.created_at }}</td></tr>
@@ -14,4 +16,5 @@
 <p style="margin-top: 1.5rem;">
   <a href="{{ url_for('mainpage') }}">Сгенерировать монстрика →</a>
 </p>
+
 {% endblock %}
