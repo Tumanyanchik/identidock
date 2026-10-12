@@ -1,17 +1,9 @@
 stages:
   - lint
-  - build
-  - test
-  - deploy
 
-include:
-  - local: 'ci-cd/gitlab/templates/lint.yml'
-  - local: 'ci-cd/gitlab/templates/build.yml'
-  - local: 'ci-cd/gitlab/templates/test.yml'
-  - local: 'ci-cd/gitlab/templates/deploy.yml'
-
-variables:
-  # Общие переменные для всех job'ов. Реальные секреты — в GitLab CI/CD Variables.
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
-  IMAGE_NAME: ${CI_REGISTRY_IMAGE}/identidock
+lint:
+  stage: lint
+  image: alpine:3.20
+  script: echo "lint works"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
