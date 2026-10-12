@@ -1,4 +1,4 @@
-test:placeholder:
+"test:placeholder":
   stage: test
   image: alpine:3.20
   script:
