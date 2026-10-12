@@ -4,6 +4,6 @@ lint:
     - identidock
   image: alpine:3.20
   script:
-    - echo "Lint stage placeholder - TODO: shellcheck, hadolint, yamllint"
+    - echo "Lint stage placeholder "
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
