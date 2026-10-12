@@ -3,6 +3,8 @@ stages:
 
 lint:
   stage: lint
+  tags:
+    - identidock
   image: alpine:3.20
   script: echo "lint works"
   rules:
