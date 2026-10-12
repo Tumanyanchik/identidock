@@ -1,4 +1,4 @@
-"build:identidock":
+build:
   stage: build
   image: docker:27
   script:
