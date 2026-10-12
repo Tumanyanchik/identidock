@@ -1,0 +1,7 @@
+lint:placeholder:
+  stage: lint
+  image: alpine:3.20
+  script:
+    - echo "Lint stage placeholder — TODO: shellcheck, hadolint, yamllint"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"

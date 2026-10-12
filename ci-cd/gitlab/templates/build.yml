@@ -1,0 +1,9 @@
+build:identidock:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  script:
+    - echo "Build stage placeholder — TODO: docker build из identidock/"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"

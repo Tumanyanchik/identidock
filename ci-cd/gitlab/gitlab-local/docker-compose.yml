@@ -1,0 +1,41 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:19.3.2-ce.0
+    container_name: gitlab
+    restart: unless-stopped
+    hostname: '${GITLAB_HOSTNAME:-gitlab.local}'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://${GITLAB_HOSTNAME:-gitlab.local}:${GITLAB_HTTP_PORT:-8929}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SSH_PORT:-2224}
+        nginx['redirect_http_to_https'] = false
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 5
+        gitlab_rails['time_zone'] = 'Europe/Moscow'
+    ports:
+      - "${GITLAB_HTTP_PORT:-8929}:8929"
+      - "${GITLAB_HTTPS_PORT:-8443}:443"
+      - "${GITLAB_SSH_PORT:-2224}:22"
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    shm_size: '256m'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8929/-/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+    networks:
+      - gitlab-net
+
+volumes:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+
+networks:
+  gitlab-net:
+    name: gitlab-net
+    driver: bridge
