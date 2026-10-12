@@ -2,6 +2,6 @@ test:
   stage: test
   image: alpine:3.20
   script:
-    - echo "Test stage placeholder — TODO: unit-тесты против docker-compose"
+    - echo "Test stage placeholder - TODO: unit-тесты против docker-compose"
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
