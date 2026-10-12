@@ -18,15 +18,12 @@ echo "[runner] Регистрация в $GITLAB_URL (tags: $RUNNER_TAGS)..."
 gitlab-runner register \
     --non-interactive \
     --url "$GITLAB_URL" \
-    --registration-token "$RUNNER_TOKEN" \
+    --token "$RUNNER_TOKEN" \
     --executor "docker" \
     --docker-image "docker:27" \
     --description "$RUNNER_DESCRIPTION" \
-    --tag-list "$RUNNER_TAGS" \
     --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
     --docker-privileged=false \
-    --run-untagged="false" \
-    --locked="false"
 
 echo "[runner] Регистрация завершена — запускаем."
 exec gitlab-runner run --user=gitlab-runner --working-directory=/home/gitlab-runner
