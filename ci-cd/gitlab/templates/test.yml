@@ -1,5 +1,7 @@
 test:
   stage: test
+  tags:
+    - identidock
   image: alpine:3.20
   script:
     - echo "Test stage placeholder - TODO: unit-тесты против docker-compose"

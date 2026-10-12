@@ -1,9 +1,10 @@
 deploy:
   stage: deploy
+  tags:
+    - identidock
   image: alpine:3.20
   script:
     - echo "Deploy stage placeholder - TODO: push в registry, деплой"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
-      allow_failure: false
