@@ -1,0 +1,9 @@
+lint:
+  stage: lint
+  tags:
+    - identidock
+  image: alpine:3.20
+  script:
+    - echo "Lint stage placeholder "
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"

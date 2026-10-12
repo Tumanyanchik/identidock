@@ -1,0 +1,10 @@
+build:
+  stage: build
+  tags:
+    - identidock
+  image: docker:27
+  script:
+    - docker version
+    - echo "Build stage placeholder "
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"

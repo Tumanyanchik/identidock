@@ -12,3 +12,6 @@ __pycache__/
 instance/
 .idea/
 .vscode/
+*.swp
+*.swo
+.gitlab-ci.yml.sw?
