@@ -1,0 +1,23 @@
+services:
+  gitlab-runner:
+    build: .
+    image: identidock-gitlab-runner:1.0
+    container_name: gitlab-runner
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - gitlab-runner-config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+      - gitlab-net
+
+volumes:
+  gitlab-runner-config:
+
+networks:
+  gitlab-net:
+    name: gitlab-net
+    external: true
+

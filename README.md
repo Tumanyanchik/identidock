@@ -25,8 +25,8 @@
 4. Выполнить команду: `docker-compose up -d`<br>
 
 **Для настройки CI\CD** (Jenkins)<br>
-5. Перейти в каталог identijenk и выполнить сборку `docker-compose up -d`.<br>
-Далее потребуется настроить задачу в интерфейсе. Пример для shell скрипта расположен в каталоге identijenk.<br>
+5. Перейти в каталог ci-cd/jenkins и выполнить сборку `docker-compose up -d`.<br>
+Далее потребуется настроить задачу в интерфейсе. Пример для shell скрипта расположен в каталоге<br>
 
 **Для настройки мониторинга приложения** (ELK + logspout)<br>
 6. Перейти в каталоги monitoring и выполнить сборку `docker-compose up -d`.<br>
@@ -267,7 +267,9 @@ docker_logrotate.sh c root правами.
   - **app/extensions.py** - `db`, `login_manager`, `migrate`, `csrf`
   - **app/tests.py** - unit-тесты (в т.ч. проверка `@login_required`)
   - **app/templates/** - `base.html`, `index.html`, `login.html`, `register.html`, `profile.html`
-- **identijenk/** - конфигурация Jenkins
+- **ci-cd/** - конфигурация CI/CD
+  - **ci-cd/jenkins/** - Jenkins (Dockerfile, compose, shell-скрипт сборки)
+  - **ci-cd/gitlab/** - GitLab CI (include-шаблоны, хелперы)
 - **identiproxy/** - конфигурация Nginx (балансировщик)
 - **monitoring/** - конфигируция ELK (настройка парсинга логов, данные ELK, Logspout)
 - **monitoring/zabbix** - конфигурация Zabbix
