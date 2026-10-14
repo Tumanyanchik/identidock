@@ -1,10 +1,21 @@
 deploy:
   stage: deploy
-  tags:
-    - identidock
-  image: alpine:3.20
+  image: docker:27-cli
   script:
-    - echo "Deploy stage placeholder "
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:newest
+    - docker push $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $DOCKERHUB_IMAGE:newest
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - "identidock/**/*.py"
+        - "identidock/Dockerfile"
+        - "identidock/requirements.txt"
+        - "identidock/cmd.sh"
+        - "identidock/entrypoint.sh"
+        - "identidock/.dockerignore"
+        - "common.yml"
+        - "docker-compose.yml"
       when: manual

@@ -6,7 +6,7 @@ from models import User
 
 
 TEST_USERNAME = 'testuser'
-TEST_EMAIL    = 'testuser@example.com'
+TEST_EMAIL = 'testuser@example.com'
 TEST_PASSWORD = 'testpass'
 
 

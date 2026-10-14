@@ -1,9 +1,9 @@
 lint:
   stage: lint
-  tags:
-    - identidock
-  image: alpine:3.20
+  image: python:3.11-slim
+  before_script:
+    - pip install --no-cache-dir flake8
   script:
-    - echo "Lint stage placeholder "
+    - flake8 identidock/app --max-line-length=120 --exclude=__pycache__,migrations
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
