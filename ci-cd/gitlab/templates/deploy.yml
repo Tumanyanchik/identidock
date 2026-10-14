@@ -9,13 +9,4 @@ deploy:
     - docker push $DOCKERHUB_IMAGE:newest
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - "identidock/**/*.py"
-        - "identidock/Dockerfile"
-        - "identidock/requirements.txt"
-        - "identidock/cmd.sh"
-        - "identidock/entrypoint.sh"
-        - "identidock/.dockerignore"
-        - "common.yml"
-        - "docker-compose.yml"
       when: manual
