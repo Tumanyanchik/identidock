@@ -1,0 +1,76 @@
+# ─── Базовый шаблон отправки в Telegram ────────────────────────
+.telegram_send:
+  image: curlimages/curl:8.10.1
+  variables:
+    GIT_STRATEGY: none          # не клонируем репо — нам нужен только curl
+  before_script:
+    - |
+      if [ -z "$TELEGRAM_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+        echo "⚠ TELEGRAM_TOKEN или TELEGRAM_CHAT_ID не заданы — пропускаю уведомление"
+        exit 0
+      fi
+
+# ─── Уведомление об успехе ─────────────────────────────────────
+notify_success:
+  extends: .telegram_send
+  stage: notify
+  when: on_success
+  script:
+    - |
+      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        -d chat_id="${TELEGRAM_CHAT_ID}" \
+        -d parse_mode="Markdown" \
+        -d text="✅ *Pipeline #${CI_PIPELINE_ID}* прошёл успешно
+      📦 Проект: \`${CI_PROJECT_PATH}\`
+      🌿 Ветка: \`${CI_COMMIT_BRANCH}\`
+      👤 Автор: ${GITLAB_USER_NAME}
+      💬 Коммит: \`${CI_COMMIT_SHORT_SHA}\` — ${CI_COMMIT_TITLE}
+      🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
+      > /dev/null
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─── Уведомление об ошибке ─────────────────────────────────────
+notify_failure:
+  extends: .telegram_send
+  stage: notify
+  when: on_failure
+  script:
+    - |
+      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        -d chat_id="${TELEGRAM_CHAT_ID}" \
+        -d parse_mode="Markdown" \
+        -d text="❌ *Pipeline #${CI_PIPELINE_ID}* упал
+      📦 Проект: \`${CI_PROJECT_PATH}\`
+      🌿 Ветка: \`${CI_COMMIT_BRANCH}\`
+      👤 Автор: ${GITLAB_USER_NAME}
+      💬 Коммит: \`${CI_COMMIT_SHORT_SHA}\` — ${CI_COMMIT_TITLE}
+      🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
+      > /dev/null
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─── Уведомление об откате  ───────────────────────────
+rollback:
+  extends: .telegram_send
+  stage: notify
+  when: manual
+  allow_failure: true
+  script:
+    - |
+      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        -d chat_id="${TELEGRAM_CHAT_ID}" \
+        -d parse_mode="Markdown" \
+        -d text="🔄 *Откат запущен вручную*
+      📦 Проект: \`${CI_PROJECT_PATH}\`
+      👤 Инициатор: ${GITLAB_USER_NAME}
+      ℹ️ Откатываю до предыдущего успешного коммита.
+      🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
+      > /dev/null
+    # ⬇ Здесь ваша логика отката, например:
+    # - docker pull tumanyan/identidock:<previous-sha>
+    # - docker tag ... tumanyan/identidock:newest
+    # - docker push tumanyan/identidock:newest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
