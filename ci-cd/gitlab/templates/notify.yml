@@ -50,25 +50,6 @@ notify_failure:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# ─── Уведомление об отмене пайплайна ───────────────────────────
-notify_canceled:
-  extends: .telegram_send
-  stage: notify
-  when: on_canceled
-  script:
-    - |
-      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-        -d chat_id="${TELEGRAM_CHAT_ID}" \
-        -d parse_mode="Markdown" \
-        -d text="⚠️ *Pipeline #${CI_PIPELINE_ID}* отменён
-      📦 Проект: \`${CI_PROJECT_PATH}\`
-      🌿 Ветка: \`${CI_COMMIT_BRANCH}\`
-      👤 Автор: ${GITLAB_USER_NAME}
-      🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
-      > /dev/null
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-
 # ─── Уведомление об откате  ───────────────────────────
 rollback:
   extends: .telegram_send
