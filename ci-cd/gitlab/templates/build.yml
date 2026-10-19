@@ -1,5 +1,4 @@
 build:
-  extends: .skip_unless_changed
   stage: build
   image: docker:27-cli
   script:
@@ -10,3 +9,5 @@ build:
         identidock/
     - docker image inspect identidock:$CI_COMMIT_SHORT_SHA >/dev/null
     - echo "✅ Built identidock:$CI_COMMIT_SHORT_SHA"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"

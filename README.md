@@ -1,6 +1,6 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
-![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=flat&logo=jenkins&logoColor=white)
+![GitLab CI](https://img.shields.io/badge/GitLab_CI-FC6D26?style=flat&logo=gitlab&logoColor=white)
 ![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=flat&logo=ansible&logoColor=white)
 ![ELK](https://img.shields.io/badge/ELK-005571?style=flat&logo=elastic-stack&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=prometheus&logoColor=white)
@@ -17,16 +17,82 @@
 ![Пример изображения](./screenshots/screenshot1.png)<br><br>
 
 ---
-## Как запускать
-1. Выполнить `git clone`.<br>
-2. Перейти в каталог identiproxy и выполнить сборку `docker build -t proxy:1.0 .` .<br>
-3. Поправить  **`docker-compose.yml`** файл,<br>
-указав актуальный IP адрес для переменной `NGINX_HOST`<br>
-4. Выполнить команду: `docker-compose up -d`<br>
+<br>
+## Архитектура окружений
 
-**Для настройки CI\CD** (Jenkins)<br>
-5. Перейти в каталог ci-cd/jenkins и выполнить сборку `docker-compose up -d`.<br>
-Далее потребуется настроить задачу в интерфейсе. Пример для shell скрипта расположен в каталоге<br>
+В проекте настроены два независимых окружения:
+
+- **DEV**: Запускается локально из исходников. Доступен по адресу `http://localhost:9001`. Использует Flask dev-сервер (с hot-reload).
+- **PROD**: Запускается из готового Docker-образа (из Docker Hub) в папке `/opt/identidock-prod`. Доступен по адресу `http://localhost` (порт 80). Использует uWSGI.
+
+---
+
+## 🚀 Инструкция по развертыванию (Migration Guide)
+
+Если вы переносите проект на новый сервер, выполните следующие шаги.
+
+### 1. Предварительные требования
+- Установлен Docker и Docker Compose.
+- Создана внешняя сеть: `docker network create gitlab-net`.
+- Открыты порты `80` (PROD), `9001` (DEV), `8929` (GitLab).
+
+### 2. Развертывание GitLab и GitLab Runner
+1. Перейдите в `ci-cd/gitlab/runner`.
+2. Скопируйте `.env.example` в `.env` и заполните `RUNNER_TOKEN` (получить можно в GitLab -> Settings -> CI/CD -> Runners).
+3. Запустите: `docker-compose up -d`.
+*(Раннер автоматически подтянет DNS, проброс сокета и папки `/opt/identidock-prod` благодаря `config.template.toml`).*
+
+### 3. Развертывание DEV окружения
+1. В корне проекта скопируйте `.env.example` в `.env`. Сгенерируйте безопасный `SECRET_KEY` (`openssl rand -base64 32`).
+2. Запустите: `docker-compose up -d`.
+3. Проверка: `curl http://localhost:9001/healthz`.
+
+### 4. Развертывание PROD окружения
+1. Создайте папку `sudo mkdir -p /opt/identidock-prod` и выдайте права текущему пользователю (`sudo chown -R $USER:$USER /opt/identidock-prod`).
+2. Скопируйте туда `.env.example` (из корня репозитория) и переименуйте его в `.env`. Заполните секреты.
+   *(Файл `docker-compose.yml` копировать не нужно — CI автоматически использует версию из `ci-cd/gitlab/prod/docker-compose.yml`)*.
+3. Запустите: `docker-compose up -d` (в первый раз можно поднять вручную, если CI ещё не настроен).
+4. Проверка: `curl http://localhost/healthz`.
+---
+
+## ⚙️ CI/CD Пайплайн (GitLab)
+
+Пайплайн запускается при каждом пуше в ветку.
+- **lint**: Проверка кода flake8.
+- **build**: Сборка Docker-образа.
+- **test**: Запуск Unit-тестов и Healthcheck (с отдельной тестовой БД).
+- **deploy** (manual): Пуш образа в Docker Hub и тегирование. При нажатии можно указать тег (по умолчанию `newest`).
+- **verify**: Автоматический деплой на PROD (папка `/opt/identidock-prod`). Если Healthcheck не проходит — пайплайн падает.
+- **rollback**: Если `verify` упал, автоматически откатывает PROD на предыдущий успешный тег и чинит тег `newest` на Docker Hub.
+- **notify**: Отправка статуса в Telegram.
+
+### Переменные CI/CD Gitlab (Settings -> CI/CD -> Variables)
+Для работы пайплайна необходимо задать:
+- `SECRET_KEY`, `POSTGRES_PASSWORD` (секреты БД).
+- `DOCKER_USER`, `DOCKER_PASS` (для пуша в Docker Hub).
+- `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` (для уведомлений).
+- `PROD_DIR` = `/opt/identidock-prod`
+- `PROD_HEALTHCHECK_URL` = `http://localhost/healthz`
+
+---
+
+## 📱 Telegram Уведомления и VPN
+
+Сервер Astra находится в РФ, где доступ к `api.telegram.org` заблокирован. Для работы уведомлений на хосте настроен **AmneziaWG** (сплит-туннель только для подсетей Telegram).
+
+### Как это устроено:
+- Клиент AmneziaWG собирается из исходников (kernel-модуль).
+- Конфиг лежит в `/etc/amnezia/amneziawg/wg0.conf`.
+- Автозапуск: `systemctl enable amneziawg-quick@wg0`.
+- Маршруты настроены только на IP Telegram (Docker Hub и PyPI ходят напрямую).
+
+Если Telegram перестал работать, проверьте:
+```bash
+sudo awg show
+# Должен быть latest handshake
+```
+
+---
 
 **Для настройки мониторинга приложения** (ELK + logspout)<br>
 6. Перейти в каталоги monitoring и выполнить сборку `docker-compose up -d`.<br>
@@ -53,23 +119,20 @@ sudo apt install zabbix-agent -y
 Для Node Exporter можно выбрать 1860.<br>
 Для cAdvisor можно выбрать 14282.<br>
 
-
 ### Проверка работоспособности
 
-- Приложение: http://localhost:80
+- Приложение (PROD): http://localhost:80
+- Приложение (DEV): http://localhost:9001
 - Health-check (без авторизации): http://localhost:80/healthz → `{"status":"ok"}`
 - Kibana: http://localhost:5601
-- Jenkins: http://localhost:8090
 - Elasticsearch: http://localhost:9200
 - cAdvisor: http://localhost:8085
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000
 - Zabbix: http://localhost:8070
-- Alertmanager: http://192.168.30.53:9093 <br>
-Если alertов нет, для проверкb можно сгенерировать тестовый через api: <br>
-`curl -X POST -H "Content-Type: application/json" -d '[{"labels":{"alertname":"test","severity":"critical"},"annotations":{"summary":"Test alert","description":"This is a test"}}]' http://localhost:9093/api/v2/alerts`
 
 ---
+
 ### Технологии и инструменты
 Работа основана на материале книги "Использование Docker".<br>
 
@@ -78,8 +141,8 @@ sudo apt install zabbix-agent -y
 | Языки | Python, Bash |
 | Веб-фреймворк | Flask |
 | Контейнеризация | Docker, Docker Compose |
-| CI/CD | Jenkins, GitHub |
-| Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout,  Zabbix |
+| CI/CD | GitLab CI, Docker Hub |
+| Мониторинг | ELK Stack (Elasticsearch, Logstash, Kibana), Logspout, Zabbix |
 | Сбор метрик | cAdvisor, Prometheus, Grafana, Alertmanager, Node Exporter |
 | Оркестрация | Ansible |
 | Базы данных | Redis, PostgreSQL |
@@ -121,64 +184,26 @@ sequenceDiagram
 ```
 <br>
 
-
 ***Авторизация и пользователи***
 - `Flask-Login` + сессионная cookie (`HttpOnly`, `SameSite=Lax`).
 - Пароли — `werkzeug.security` (PBKDF2).
 - Хранилище — PostgreSQL, доступ через `Flask-SQLAlchemy`.
-- Миграции — `Flask-Migrate` (Alembic). В `ENV=UNIT` миграции пропускаются
-  (см. `entrypoint.sh`), тесты создают схему через `db.create_all()`.
+- Миграции — `Flask-Migrate` (Alembic). В `ENV=UNIT` миграции пропускаются (см. `entrypoint.sh`), тесты создают схему через `db.create_all()`.
 - CSRF — `Flask-WTF`; в `ENV=UNIT` отключается.
 - Публичные маршруты: `/`, `/healthz`, `/login`, `/register`.
 - Требуют авторизации: `/monster/<name>`, `/profile`.
 
-
 ***Сборка и запуск python приложения*** (identidock.py) в Docker-контейнере.<br>
 Приложение написано на *Flask*. В качестве сервера используется *uWSGI*.<br><br>
 
-***DEV/UNIT/PROD*** скрипт cmd.sh определяет в каком окружении будет <br>
-запускаться приложение.<br><br>
+***DEV/UNIT/PROD*** скрипт cmd.sh определяет в каком окружении будет запускаться приложение.<br><br>
 
-***CI/CD pipeline*** использован *Jenkins*.<br>
-Использован подход Continuous Deployment. Задача проверяет репозиторий GitHub.<br>
-Если в коде приложения/docker файлах есть изменения -> поднимаются контейнеры<br>
-в тестовом окружении и запускаются тесты.<br>
-Если тесты прошли образы заливаются в репозиторий DockerHub.<br>
-При запуске приложения берутся образы из DockerHub и происходит сборка<br>
-в PROD окружении.<br><br>
-
-```mermaid
-flowchart TD
-    A[Запуск Jenkins-задачи] --> B[Установка COMPOSE_ARGS и TEST_PORT]
-    B --> C{Есть ли предыдущий успешный коммит?}
-    C -- Да --> D[git diff с PREVIOUS_SUCCESSFUL_COMMIT]
-    C -- Нет --> E[git diff с HEAD~1]
-    D --> F{Обнаружены изменения?}
-    E --> F
-    F -- Нет --> G[Пропуск сборки]
-    F -- Да --> H[Сборка Docker-образа с --no-cache]
-    H --> I[Поднятие сервисов: identidock, dnmonster, redis]
-    G --> I
-    I --> J[Ожидание 5 сек]
-    J --> K[Запуск Unit-тестов в контейнере]
-    K --> L{Тесты успешны?}
-    L -- Нет --> M[Завершение с ошибкой]
-    L -- Да --> N[Запуск DEV-контейнера для health check]
-    N --> O[Ожидание 5 сек]
-    O --> P[curl к /healthz]
-    P --> Q{HTTP код 200?}
-    Q -- Нет --> R[Завершение с ошибкой health check]
-    Q -- Да --> S{Были изменения?}
-    S -- Нет --> T[Пропуск пуша]
-    S -- Да --> U[Логин в Docker Hub]
-    U --> V[Тегирование образа]
-    V --> W[Пуш образа в Docker Hub]
-    W --> X[Завершение успехом]
-    T --> X
-    M --> Z[Cleanup]
-    R --> Z
-    X --> Z
-```
+***CI/CD pipeline*** использован *GitLab CI*.<br>
+Использован подход Continuous Deployment.<br>
+- При пуше в любую ветку запускаются линтеры и тесты.
+- Деплой (пуш в Docker Hub) происходит вручную (кнопкой Play).
+- После деплоя автоматически запускается `verify`, который обновляет PROD и проверяет Healthcheck.
+- Если PROD не отвечает, запускается `rollback`, возвращающий предыдущую версию.
 
 ***Мониторинг приложения*** использован стек *ELK*.<br>
 *Logspout* - собирает логи всех приложений на хосте.<br>
@@ -205,15 +230,11 @@ curl -X PUT "localhost:9200/_snapshot/my_backup?pretty" \
 ```bash
 curl -X PUT "localhost:9200/_snapshot/my_backup/snapshot_1?wait_for_completion=true&pretty"
 ```
-
 3) Проверить созданные снэпшоты
-
 ```bash
 curl -X GET "localhost:9200/_snapshot/my_backup/_all?pretty"
 ```
-
 4) Пример команды для восстановления
-
 ```bash
 curl -X POST "localhost:9200/_snapshot/my_backup/snapshot_1/_restore?wait_for_completion=true&pretty" \
   -H 'Content-Type: application/json' -d'
@@ -267,9 +288,9 @@ docker_logrotate.sh c root правами.
   - **app/extensions.py** - `db`, `login_manager`, `migrate`, `csrf`
   - **app/tests.py** - unit-тесты (в т.ч. проверка `@login_required`)
   - **app/templates/** - `base.html`, `index.html`, `login.html`, `register.html`, `profile.html`
-- **ci-cd/** - конфигурация CI/CD
-  - **ci-cd/jenkins/** - Jenkins (Dockerfile, compose, shell-скрипт сборки)
-  - **ci-cd/gitlab/** - GitLab CI (include-шаблоны, хелперы)
+- **ci-cd/gitlab/** - GitLab CI (include-шаблоны, хелперы)
+  - **runner/** - настройка GitLab Runner (config.template.toml)
+  - **prod/** - эталонный docker-compose.yml для PROD окружения (используется CI)
 - **identiproxy/** - конфигурация Nginx (балансировщик)
 - **monitoring/** - конфигируция ELK (настройка парсинга логов, данные ELK, Logspout)
 - **monitoring/zabbix** - конфигурация Zabbix
@@ -278,6 +299,8 @@ docker_logrotate.sh c root правами.
 - **ansible_configuration/** - Ansible плейбуки для деплоя
 - **screenshots/** - скриншоты для README
 - **common.yml** - версии образов для сервисов приложения
+- **.env.example** - шаблон переменных для DEV
+- **docker-compose.yml** - (в /opt/identidock-prod) шаблон для PROD
 
 ---
 ### Известные проблемы и их решение
@@ -291,8 +314,8 @@ docker_logrotate.sh c root правами.
 ```
 
 ***Ошибка доступа к Docker Hub***
-**Причина:** Не настроены credentials для Jenkins.<br>
-**Решение:** Укажите свои логин/пароль и репозиторий в Jenkins-задаче.<br>
+**Причина:** Не настроены credentials в GitLab Variables.<br>
+**Решение:** Укажите свои логин (`DOCKER_USER`) и пароль/токен (`DOCKER_PASS`) в настройках CI/CD.<br>
 <br>
 
 ---

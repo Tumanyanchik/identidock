@@ -3,8 +3,6 @@ rollback:
   image: docker:27-cli
   needs: [verify]
   when: on_failure
-  variables:
-    GIT_STRATEGY: none
   before_script:
     - apk add --no-cache bash curl
   script:
@@ -16,10 +14,12 @@ rollback:
       fi
       echo "Rolling back to $PREV"
     - |
-      cd "$PROD_DIR"
-      sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" .env
-      docker compose -p identidock-prod pull identidock
-      docker compose -p identidock-prod up -d --no-build identidock
+      sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" "$PROD_DIR/.env"
+      docker compose \
+        -p identidock-prod \
+        -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml \
+        --env-file "$PROD_DIR/.env" \
+        up -d --pull always identidock
     - sleep 15
     - |
       CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_HEALTHCHECK_URL" || echo "000")

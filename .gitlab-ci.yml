@@ -17,20 +17,13 @@ include:
   - local: 'ci-cd/gitlab/templates/notify.yml'
 
 variables:
-  # Docker executor
   DOCKER_HOST: unix:///var/run/docker.sock
   DOCKER_TLS_CERTDIR: ""
   DOCKER_DRIVER: overlay2
-
-  # Compose settings
   COMPOSE_FILE: docker-compose.yml
   COMPOSE_PROJECT: identidock-ci-$CI_PIPELINE_ID
-
-  # Images
   LOCAL_IMAGE: identidock
   DOCKERHUB_IMAGE: tumanyan/identidock
-
-  # Nginx proxy (для CI контейнеров, если понадобится)
   NGINX_HOST: localhost
   NGINX_PROXY: identidock
 
@@ -38,21 +31,3 @@ default:
   interruptible: true
   tags:
     - identidock
-
-# ─── Общий «фильтр» для build/test ──────────────────────────────
-# Если ни один из этих файлов не менялся — job'ы будут skipped.
-.skip_unless_changed:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-      changes:
-        - "identidock/**/*.py"
-        - "identidock/Dockerfile"
-        - "identidock/requirements.txt"
-        - "identidock/cmd.sh"
-        - "identidock/entrypoint.sh"
-        - "identidock/.dockerignore"
-        - "common.yml"
-        - "docker-compose.yml"
-        # CI-файлы:
-        - ".gitlab-ci.yml"
-        - "ci-cd/gitlab/templates/**/*.yml"
