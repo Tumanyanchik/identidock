@@ -28,5 +28,8 @@ grep -q 'clone_url' "$CONFIG_FILE" || \
 grep -q 'network_mode' "$CONFIG_FILE" || \
     sed -i '/runners\.docker/a\    network_mode = "gitlab-net"' "$CONFIG_FILE"
 
+grep -q 'dns =' "$CONFIG_FILE" || \
+    sed -i '/runners\.docker/a\    dns = ["77.88.8.8", "77.88.8.1"]' "$CONFIG_FILE"
+
 echo "[runner] Запускаем."
 exec gitlab-runner run --user=gitlab-runner --working-directory=/home/gitlab-runner
