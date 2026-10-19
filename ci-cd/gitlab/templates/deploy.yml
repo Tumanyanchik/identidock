@@ -1,16 +1,13 @@
 deploy:
   stage: deploy
   image: docker:27-cli
-  inputs:
-    DEPLOY_TAG:
-      type: string
-      default: "newest"
-      description: "Docker image tag (e.g. newest, abc1234, v1.0.0)"
+  variables:
+    DEPLOY_TAG: "newest"
   script:
-    - echo "Deploying tag ${{ job.inputs.DEPLOY_TAG }} for commit $CI_COMMIT_SHORT_SHA"
+    - echo "Deploying tag $DEPLOY_TAG for commit $CI_COMMIT_SHORT_SHA"
     - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
     - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
-    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:${{ job.inputs.DEPLOY_TAG }}
+    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$DEPLOY_TAG
     - |
       push_with_retry() {
         local image="$1"
@@ -30,7 +27,7 @@ deploy:
         return 1
       }
       push_with_retry $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
-      push_with_retry $DOCKERHUB_IMAGE:${{ job.inputs.DEPLOY_TAG }}
+      push_with_retry $DOCKERHUB_IMAGE:$DEPLOY_TAG
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
