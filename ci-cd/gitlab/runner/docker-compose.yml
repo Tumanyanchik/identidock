@@ -9,7 +9,6 @@ services:
     volumes:
       - gitlab-runner-config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./config.template.toml:/etc/gitlab-runner/config.template.toml
 
     # --- ОГРАНИЧЕНИЯ РЕСУРСОВ ДЛЯ САМОГО РАННЕРА ---
     deploy:

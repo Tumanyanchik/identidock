@@ -17,6 +17,8 @@ if [ ! -f "$CONFIG_FILE" ] || ! grep -q '^  token' "$CONFIG_FILE"; then
         --docker-image "docker:27" \
         --description "$RUNNER_DESCRIPTION" \
         --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+        --docker-volumes "/cache" \
+        --docker-volumes "/opt/identidock-prod:/opt/identidock-prod" \
         --docker-privileged=false
 fi
 

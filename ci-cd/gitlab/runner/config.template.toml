@@ -1,9 +1,0 @@
-[[runners]]
-  [runners.docker]
-    network_mode = "gitlab-net"
-    dns = ["8.8.8.8", "1.1.1.1"]
-    volumes = [
-      "/var/run/docker.sock:/var/run/docker.sock",
-      "/cache",
-      "/opt/identidock-prod:/opt/identidock-prod"
-    ]
