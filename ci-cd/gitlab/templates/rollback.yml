@@ -11,43 +11,30 @@ rollback:
     - |
       PREV=$(cat "$PROD_DIR/.previous_sha" 2>/dev/null || echo "")
       if [ -z "$PREV" ]; then
-        echo "❌ Нет предыдущего SHA, откатывать некуда"; exit 1
+        echo "No previous SHA to rollback to"
+        exit 1
       fi
-      echo "Откатываемся на $PREV"
-
-    # 1. Переключаем ПРОД на старый SHA
+      echo "Rolling back to $PREV"
     - |
       cd "$PROD_DIR"
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" .env
       docker compose -p identidock-prod pull identidock
       docker compose -p identidock-prod up -d --no-build identidock
     - sleep 15
-
-    # 2. Проверяем, что прод ожил
     - |
       CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_HEALTHCHECK_URL" || echo "000")
       if [ "$CODE" = "200" ]; then
-        echo "✅ Откат успешен, прод работает на $PREV"
+        echo "Rollback successful"
         echo "$PREV" > "$PROD_DIR/.last_good_sha"
       else
-        echo "❌ Прод всё ещё лежит: $CODE"
+        echo "Prod is still broken, HTTP $CODE"
         exit 1
       fi
-
-    # 3. ЧИНИМ ТЕГ NEWEST В DOCKER HUB (чтобы он не указывал на сломанный код)
-    - |
-      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-      docker pull $DOCKERHUB_IMAGE:$PREV
-      docker tag $DOCKERHUB_IMAGE:$PREV $DOCKERHUB_IMAGE:newest
-      docker push $DOCKERHUB_IMAGE:newest
-      echo "✅ Тег :newest на Docker Hub перенаправлен на $PREV"
-
-    # 4. Уведомление
     - |
       curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
         -d chat_id="${TELEGRAM_CHAT_ID}" \
-        -d text="🚨 Откат: ${CI_COMMIT_SHORT_SHA} → ${PREV}. Тег :newest исправлен." \
-        || echo "Telegram недоступен"
+        -d text="Rollback executed. From ${CI_COMMIT_SHORT_SHA} to ${PREV}" \
+        || echo "Telegram unreachable"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: on_failure

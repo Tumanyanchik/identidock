@@ -1,55 +1,35 @@
-stages:
-  - lint
-  - build
-  - test
-  - deploy
-  - verify
-  - rollback
-  - notify
-
-include:
-  - local: 'ci-cd/gitlab/templates/lint.yml'
-  - local: 'ci-cd/gitlab/templates/build.yml'
-  - local: 'ci-cd/gitlab/templates/test.yml'
-  - local: 'ci-cd/gitlab/templates/deploy.yml'
-  - local: 'ci-cd/gitlab/templates/verify.yml'
-  - local: 'ci-cd/gitlab/templates/rollback.yml'
-  - local: 'ci-cd/gitlab/templates/notify.yml'
-
-
-variables:
-  DOCKER_HOST: unix:///var/run/docker.sock
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_DRIVER: overlay2
-
-  COMPOSE_FILE: docker-compose.yml
-  COMPOSE_PROJECT: identidock-ci-$CI_PIPELINE_ID
-
-  LOCAL_IMAGE: identidock
-  DOCKERHUB_IMAGE: tumanyan/identidock
-  NGINX_HOST: localhost
-  NGINX_PROXY: identidock
-
-default:
-  interruptible: true
-  tags:
-    - identidock
-
-# ─── Общий «фильтр» для build/test/deploy ──────────────────────
-# Если ни один из этих файлов не менялся относительно предыдущего
-# коммита в ветке — соответствующие job'ы будут skipped.
-.skip_unless_changed:
+deploy:
+  stage: deploy
+  image: docker:27-cli
+  variables:
+    DEPLOY_TAG:
+      value: "newest"
+      description: "Docker image tag (default newest)"
+  script:
+    - echo "Deploying tag $DEPLOY_TAG for commit $CI_COMMIT_SHORT_SHA"
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$DEPLOY_TAG
+    - |
+      push_with_retry() {
+        local image="$1"
+        local attempt=1
+        local max=3
+        while [ $attempt -le $max ]; do
+          echo "pushing $image (attempt $attempt/$max)"
+          if docker push "$image"; then
+            echo "OK $image pushed"
+            return 0
+          fi
+          echo "push failed, retrying in 10s..."
+          sleep 10
+          attempt=$((attempt + 1))
+        done
+        echo "ERROR $image push failed after $max attempts"
+        return 1
+      }
+      push_with_retry $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
+      push_with_retry $DOCKERHUB_IMAGE:$DEPLOY_TAG
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-      changes:
-        - "identidock/**/*.py"
-        - "identidock/Dockerfile"
-        - "identidock/requirements.txt"
-        - "identidock/cmd.sh"
-        - "identidock/entrypoint.sh"
-        - "identidock/.dockerignore"
-        - "common.yml"
-        - "docker-compose.yml"
-        # CI-файлы:
-        - ".gitlab-ci.yml"
-        - "ci-cd/gitlab/templates/**/*.yml"
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
