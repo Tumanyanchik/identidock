@@ -2,6 +2,7 @@ FROM python:3.14
 
 RUN groupadd -r uwsgi && useradd -r -g uwsgi uwsgi
 COPY requirements.txt ./requirements.txt
+RUN echo "nameserver 77.88.8.8" > /etc/resolv.conf
 RUN pip install -r ./requirements.txt 
 
 WORKDIR /app
