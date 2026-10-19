@@ -2,7 +2,7 @@ build:
   stage: build
   image: docker:27-cli
   script:
-    - docker build --no-cache
+    - docker build --network host --no-cache
         -t identidock:$CI_COMMIT_SHORT_SHA
         -t identidock:newest
         -f identidock/Dockerfile
