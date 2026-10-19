@@ -3,6 +3,8 @@ stages:
   - build
   - test
   - deploy
+  - verify
+  - rollback
   - notify
 
 include:
@@ -10,16 +12,16 @@ include:
   - local: 'ci-cd/gitlab/templates/build.yml'
   - local: 'ci-cd/gitlab/templates/test.yml'
   - local: 'ci-cd/gitlab/templates/deploy.yml'
+  - local: 'ci-cd/gitlab/templates/verify.yml'
+  - local: 'ci-cd/gitlab/templates/rollback.yml'
   - local: 'ci-cd/gitlab/templates/notify.yml'
 
 variables:
   DOCKER_HOST: unix:///var/run/docker.sock
   DOCKER_TLS_CERTDIR: ""
   DOCKER_DRIVER: overlay2
-
   COMPOSE_FILE: docker-compose.yml
   COMPOSE_PROJECT: identidock-ci-$CI_PIPELINE_ID
-
   LOCAL_IMAGE: identidock
   DOCKERHUB_IMAGE: tumanyan/identidock
   NGINX_HOST: localhost
@@ -29,22 +31,3 @@ default:
   interruptible: true
   tags:
     - identidock
-
-# ─── Общий «фильтр» для build/test/deploy ──────────────────────
-# Если ни один из этих файлов не менялся относительно предыдущего
-# коммита в ветке — соответствующие job'ы будут skipped.
-.skip_unless_changed:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-      changes:
-        - "identidock/**/*.py"
-        - "identidock/Dockerfile"
-        - "identidock/requirements.txt"
-        - "identidock/cmd.sh"
-        - "identidock/entrypoint.sh"
-        - "identidock/.dockerignore"
-        - "common.yml"
-        - "docker-compose.yml"
-        # CI-файлы:
-        - ".gitlab-ci.yml"
-        - "ci-cd/gitlab/templates/**/*.yml"

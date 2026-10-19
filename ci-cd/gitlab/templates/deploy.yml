@@ -1,21 +1,33 @@
 deploy:
   stage: deploy
   image: docker:27-cli
+  variables:
+    DEPLOY_TAG: "newest"
   script:
+    - echo "Deploying tag $DEPLOY_TAG for commit $CI_COMMIT_SHORT_SHA"
     - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
     - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
-    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:newest
-    - docker push $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
-    - docker push $DOCKERHUB_IMAGE:newest
+    - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$DEPLOY_TAG
+    - |
+      push_with_retry() {
+        local image="$1"
+        local attempt=1
+        local max=3
+        while [ $attempt -le $max ]; do
+          echo "pushing $image (attempt $attempt/$max)"
+          if docker push "$image"; then
+            echo "OK $image pushed"
+            return 0
+          fi
+          echo "push failed, retrying in 10s..."
+          sleep 10
+          attempt=$((attempt + 1))
+        done
+        echo "ERROR $image push failed after $max attempts"
+        return 1
+      }
+      push_with_retry $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
+      push_with_retry $DOCKERHUB_IMAGE:$DEPLOY_TAG
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - "identidock/**/*.py"
-        - "identidock/Dockerfile"
-        - "identidock/requirements.txt"
-        - "identidock/cmd.sh"
-        - "identidock/entrypoint.sh"
-        - "identidock/.dockerignore"
-        - "common.yml"
-        - "docker-compose.yml"
       when: manual

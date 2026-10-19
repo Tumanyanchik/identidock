@@ -17,6 +17,8 @@ if [ ! -f "$CONFIG_FILE" ] || ! grep -q '^  token' "$CONFIG_FILE"; then
         --docker-image "docker:27" \
         --description "$RUNNER_DESCRIPTION" \
         --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+        --docker-volumes "/cache" \
+        --docker-volumes "/opt/identidock-prod:/opt/identidock-prod" \
         --docker-privileged=false
 fi
 
@@ -25,6 +27,9 @@ grep -q 'clone_url' "$CONFIG_FILE" || \
 
 grep -q 'network_mode' "$CONFIG_FILE" || \
     sed -i '/runners\.docker/a\    network_mode = "gitlab-net"' "$CONFIG_FILE"
+
+grep -q 'dns =' "$CONFIG_FILE" || \
+    sed -i '/runners\.docker/a\    dns = ["77.88.8.8", "77.88.8.1"]' "$CONFIG_FILE"
 
 echo "[runner] Запускаем."
 exec gitlab-runner run --user=gitlab-runner --working-directory=/home/gitlab-runner

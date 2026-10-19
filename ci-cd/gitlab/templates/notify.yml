@@ -15,6 +15,7 @@ notify_success:
   extends: .telegram_send
   stage: notify
   when: on_success
+  allow_failure: true                      # ← добавили
   script:
     - |
       curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
@@ -26,7 +27,7 @@ notify_success:
       👤 Автор: ${GITLAB_USER_NAME}
       💬 Коммит: \`${CI_COMMIT_SHORT_SHA}\` — ${CI_COMMIT_TITLE}
       🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
-      > /dev/null
+      || echo "⚠ Telegram недоступен (curl exit $?)"     # ← добавили
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
@@ -35,6 +36,7 @@ notify_failure:
   extends: .telegram_send
   stage: notify
   when: on_failure
+  allow_failure: true                      # ← добавили
   script:
     - |
       curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
@@ -46,31 +48,7 @@ notify_failure:
       👤 Автор: ${GITLAB_USER_NAME}
       💬 Коммит: \`${CI_COMMIT_SHORT_SHA}\` — ${CI_COMMIT_TITLE}
       🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
-      > /dev/null
+      || echo "⚠ Telegram недоступен (curl exit $?)"     # ← добавили
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# ─── Уведомление об откате  ───────────────────────────
-rollback:
-  extends: .telegram_send
-  stage: notify
-  when: manual
-  allow_failure: true
-  script:
-    - |
-      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-        -d chat_id="${TELEGRAM_CHAT_ID}" \
-        -d parse_mode="Markdown" \
-        -d text="🔄 *Откат запущен вручную*
-      📦 Проект: \`${CI_PROJECT_PATH}\`
-      👤 Инициатор: ${GITLAB_USER_NAME}
-      ℹ️ Откатываю до предыдущего успешного коммита.
-      🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
-      > /dev/null
-    # ⬇ Здесь ваша логика отката, например:
-    # - docker pull tumanyan/identidock:<previous-sha>
-    # - docker tag ... tumanyan/identidock:newest
-    # - docker push tumanyan/identidock:newest
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
