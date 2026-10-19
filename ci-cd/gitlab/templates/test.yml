@@ -1,5 +1,4 @@
 test:
-  extends: .skip_unless_changed
   stage: test
   image: docker:27-cli
   before_script:
@@ -14,25 +13,18 @@ test:
       POSTGRES_PORT=5432
       EOF
   script:
-    # ── 1. Зависимости (без proxy — как в Jenkins) ─────────────
     - docker compose -p $COMPOSE_PROJECT up -d --no-build postgresql redis dnmonster
     - sleep 5
-
-    # ── 2. Отдельная БД под unit-тесты ─────────────────────────
     - |
       docker compose -p $COMPOSE_PROJECT exec -T postgresql \
         psql -U identidock-user -d identidock \
         -c "CREATE DATABASE identidock_test OWNER \"identidock-user\";"
-
-    # ── 3. Unit-тесты в отдельной БД ───────────────────────────
     - |
       docker run --rm --network ${COMPOSE_PROJECT}_default \
         -e ENV=UNIT \
         -e SECRET_KEY=$SECRET_KEY \
         -e DATABASE_URL=postgresql://identidock-user:$POSTGRES_PASSWORD@postgresql:5432/identidock_test \
         $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA
-
-    # ── 4. DEV-контейнер — миграции в основную identidock ──────
     - |
       docker run -d --name ci-identidock-test \
         --network ${COMPOSE_PROJECT}_default \
@@ -42,14 +34,12 @@ test:
         -e DATABASE_URL=postgresql://identidock-user:$POSTGRES_PASSWORD@postgresql:5432/identidock \
         $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA
     - sleep 10
-
     - |
       if ! docker ps -q -f name=ci-identidock-test | grep -q .; then
         echo "❌ ci-identidock-test упал, логи:"
         docker logs ci-identidock-test 2>&1 || true
         exit 1
       fi
-
     - |
       CODE=$(docker run --rm --network ${COMPOSE_PROJECT}_default \
         curlimages/curl:latest -sL -o /dev/null -w "%{http_code}" \
@@ -60,3 +50,5 @@ test:
     - docker rm -f ci-identidock-test || true
     - docker compose -p $COMPOSE_PROJECT down -v --remove-orphans || true
     - rm -f .env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
