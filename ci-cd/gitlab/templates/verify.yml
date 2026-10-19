@@ -1,0 +1,50 @@
+verify:
+  stage: verify
+  image: docker:27-cli
+  needs: [deploy]
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    # 1. Сохранить текущий рабочий SHA — пригодится для отката
+    - |
+      if [ -f "$PROD_DIR/.last_good_sha" ]; then
+        cp "$PROD_DIR/.last_good_sha" "$PROD_DIR/.previous_sha"
+        echo "Previous good SHA: $(cat $PROD_DIR/.previous_sha)"
+      else
+        echo "First deploy — previous SHA пустой"
+        touch "$PROD_DIR/.previous_sha"
+      fi
+
+    # 2. Обновить prod на конкретный SHA
+    - |
+      cd "$PROD_DIR"
+      sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${CI_COMMIT_SHORT_SHA}|" .env \
+        || echo "IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> .env
+      echo "IMAGE_TAG in .env: $(grep '^IMAGE_TAG=' .env)"
+      docker compose -p "$PROD_COMPOSE_PROJECT" pull identidock
+      docker compose -p "$PROD_COMPOSE_PROJECT" up -d --no-build identidock
+    - sleep 20
+
+    # 3. Healthcheck с ретраями
+    - |
+      for i in 1 2 3 4 5; do
+        CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_HEALTHCHECK_URL" || echo "000")
+        echo "Attempt $i: HTTP $CODE"
+        [ "$CODE" = "200" ] && break
+        sleep 5
+      done
+      if [ "$CODE" != "200" ]; then
+        echo "❌ Healthcheck failed: $CODE"
+        docker compose -p "$PROD_COMPOSE_PROJECT" logs identidock --tail 50 || true
+        exit 1
+      fi
+      echo "✅ Healthcheck OK"
+
+    # 4. Всё ок — записать SHA как последний успешный
+    - echo "$CI_COMMIT_SHORT_SHA" > "$PROD_DIR/.last_good_sha"
+    - echo "✅ Prod обновлён на $CI_COMMIT_SHORT_SHA"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: on_success

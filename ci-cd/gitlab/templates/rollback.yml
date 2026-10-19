@@ -1,0 +1,50 @@
+rollback:
+  stage: rollback
+  image: docker:27-cli
+  needs: [verify]
+  when: on_failure
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - |
+      PREV=$(cat "$PROD_DIR/.previous_sha" 2>/dev/null || echo "")
+      if [ -z "$PREV" ]; then
+        echo "❌ Нет previous SHA — откат невозможен"
+        exit 1
+      fi
+      echo "Откат на: $PREV"
+
+    # 1. Вернуть прод на предыдущий SHA
+    - |
+      cd "$PROD_DIR"
+      sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" .env
+      docker compose -p "$PROD_COMPOSE_PROJECT" pull identidock
+      docker compose -p "$PROD_COMPOSE_PROJECT" up -d --no-build identidock
+    - sleep 15
+
+    # 2. Проверить, что после отката стало хорошо
+    - |
+      CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_HEALTHCHECK_URL" || echo "000")
+      if [ "$CODE" = "200" ]; then
+        echo "✅ Откат успешен, прод работает на $PREV"
+        echo "$PREV" > "$PROD_DIR/.last_good_sha"
+      else
+        echo "❌ Прод всё ещё не работает после отката: HTTP $CODE"
+        exit 1
+      fi
+
+    # 3. Уведомление в Telegram
+    - |
+      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        -d chat_id="${TELEGRAM_CHAT_ID}" \
+        -d parse_mode="Markdown" \
+        -d text="🚨 *Rollback выполнен*
+      📦 Проект: \`${CI_PROJECT_PATH}\`
+      ⏪ Откат с \`${CI_COMMIT_SHORT_SHA}\` на \`${PREV}\`
+      🔗 [Открыть пайплайн](${CI_PIPELINE_URL})" \
+        || echo "⚠ Telegram недоступен (curl exit $?)"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: on_failure

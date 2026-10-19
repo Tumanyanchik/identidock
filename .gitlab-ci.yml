@@ -3,6 +3,8 @@ stages:
   - build
   - test
   - deploy
+  - verify
+  - rollback
   - notify
 
 include:
@@ -10,7 +12,10 @@ include:
   - local: 'ci-cd/gitlab/templates/build.yml'
   - local: 'ci-cd/gitlab/templates/test.yml'
   - local: 'ci-cd/gitlab/templates/deploy.yml'
+  - local: 'ci-cd/gitlab/templates/verify.yml'
+  - local: 'ci-cd/gitlab/templates/rollback.yml'
   - local: 'ci-cd/gitlab/templates/notify.yml'
+
 
 variables:
   DOCKER_HOST: unix:///var/run/docker.sock
