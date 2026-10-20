@@ -9,15 +9,12 @@ verify:
       if [ -f "$PROD_DIR/.last_good_sha" ]; then
         cp "$PROD_DIR/.last_good_sha" "$PROD_DIR/.previous_sha"
       fi
-    - |
-      sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${CI_COMMIT_SHORT_SHA}|" "$PROD_DIR/.env" || echo "IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> "$PROD_DIR/.env"
-      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d --pull always identidock
-    
-    - |
+      
       NGINX_HOST=$(grep '^NGINX_HOST=' "$PROD_DIR/.env" | cut -d '=' -f 2)
       echo "Checking health at http://$NGINX_HOST/healthz"
       
-      # 5 попыток с интервалом 5 секунд
+      sleep 15
+      
       for i in 1 2 3 4 5; do
         CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
         echo "Attempt $i: HTTP $CODE"
