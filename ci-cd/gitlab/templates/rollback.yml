@@ -1,7 +1,9 @@
 rollback:
   stage: rollback
   image: docker:27-cli
-  needs: [verify]
+  needs: 
+    - job: verify
+      optional: true
   when: on_failure
   before_script:
     - apk add --no-cache bash curl
@@ -9,20 +11,19 @@ rollback:
     - |
       PREV=$(cat "$PROD_DIR/.previous_sha" 2>/dev/null || echo "")
       if [ -z "$PREV" ]; then
-        echo "No previous SHA to rollback to"
-        exit 1
+        echo "WARNING: No previous SHA to rollback to. This is the first deployment."
+        exit 0
       fi
       echo "Rolling back to $PREV"
     - |
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" "$PROD_DIR/.env"
-      docker compose \
-        -p identidock-prod \
-        -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml \
-        --env-file "$PROD_DIR/.env" \
-        up -d --pull always identidock
+      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d --pull always identidock
     - sleep 15
     - |
-      CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_HEALTHCHECK_URL" || echo "000")
+      NGINX_HOST=$(grep '^NGINX_HOST=' "$PROD_DIR/.env" | cut -d '=' -f 2)
+      echo "Checking health at http://$NGINX_HOST/healthz"
+      
+      CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
       if [ "$CODE" = "200" ]; then
         echo "Rollback successful"
         echo "$PREV" > "$PROD_DIR/.last_good_sha"
@@ -30,11 +31,6 @@ rollback:
         echo "Prod is still broken, HTTP $CODE"
         exit 1
       fi
-    - |
-      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-        -d chat_id="${TELEGRAM_CHAT_ID}" \
-        -d text="Rollback executed. From ${CI_COMMIT_SHORT_SHA} to ${PREV}" \
-        || echo "Telegram unreachable"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: on_failure
