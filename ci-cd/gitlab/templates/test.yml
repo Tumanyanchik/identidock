@@ -13,18 +13,24 @@ test:
       POSTGRES_PORT=5432
       EOF
   script:
-    - docker compose -p $COMPOSE_PROJECT up -d --no-build postgresql redis dnmonster
-    - sleep 5
+    # ── 1. Зависимости (без proxy — как в Jenkins) ─────────────
+    - docker compose -p $COMPOSE_PROJECT up -d --no-build --wait postgresql redis dnmonster
+
+    # ── 2. Отдельная БД под unit-тесты ─────────────────────────
     - |
       docker compose -p $COMPOSE_PROJECT exec -T postgresql \
         psql -U identidock-user -d identidock \
         -c "CREATE DATABASE identidock_test OWNER \"identidock-user\";"
+
+    # ── 3. Unit-тесты в СВОЕЙ БД ───────────────────────────────
     - |
       docker run --rm --network ${COMPOSE_PROJECT}_default \
         -e ENV=UNIT \
         -e SECRET_KEY=$SECRET_KEY \
         -e DATABASE_URL=postgresql://identidock-user:$POSTGRES_PASSWORD@postgresql:5432/identidock_test \
         $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA
+
+    # ── 4. DEV-контейнер — миграции идут в identidock ──────────
     - |
       docker run -d --name ci-identidock-test \
         --network ${COMPOSE_PROJECT}_default \
@@ -42,7 +48,7 @@ test:
       fi
     - |
       CODE=$(docker run --rm --network ${COMPOSE_PROJECT}_default \
-        curlimages/curl:latest -sL -o /dev/null -w "%{http_code}" \
+        curlimages/curl:latest -s -o /dev/null -w "%{http_code}" \
         "http://ci-identidock-test:5000/healthz")
       echo "healthz => $CODE"
       test "$CODE" = "200"

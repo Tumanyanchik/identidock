@@ -10,18 +10,15 @@ verify:
         cp "$PROD_DIR/.last_good_sha" "$PROD_DIR/.previous_sha"
       fi
     - |
-      # 1. Обновляем тег в .env (который лежит в /opt)
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${CI_COMMIT_SHORT_SHA}|" "$PROD_DIR/.env" || echo "IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> "$PROD_DIR/.env"
-      
-      # 2. Запускаем через файл из репозитория, а env-файл берем из /opt
-      docker compose \
-        -p identidock-prod \
-        -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml \
-        --env-file "$PROD_DIR/.env" \
-        up -d --pull always identidock
+      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d --pull always identidock
     - sleep 15
     - |
-      CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_HEALTHCHECK_URL" || echo "000")
+      # Вытаскиваем NGINX_HOST из .env
+      NGINX_HOST=$(grep '^NGINX_HOST=' "$PROD_DIR/.env" | cut -d '=' -f 2)
+      echo "Checking health at http://$NGINX_HOST/healthz"
+      
+      CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
       if [ "$CODE" != "200" ]; then
         echo "Healthcheck failed, HTTP $CODE"
         exit 1
