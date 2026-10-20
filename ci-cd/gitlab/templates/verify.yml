@@ -12,15 +12,21 @@ verify:
     - |
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${CI_COMMIT_SHORT_SHA}|" "$PROD_DIR/.env" || echo "IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> "$PROD_DIR/.env"
       docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d --pull always identidock
-    - sleep 15
+    
     - |
-      # Вытаскиваем NGINX_HOST из .env
       NGINX_HOST=$(grep '^NGINX_HOST=' "$PROD_DIR/.env" | cut -d '=' -f 2)
       echo "Checking health at http://$NGINX_HOST/healthz"
       
-      CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
+      # 5 попыток с интервалом 5 секунд
+      for i in 1 2 3 4 5; do
+        CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
+        echo "Attempt $i: HTTP $CODE"
+        if [ "$CODE" = "200" ]; then break; fi
+        sleep 5
+      done
+      
       if [ "$CODE" != "200" ]; then
-        echo "Healthcheck failed, HTTP $CODE"
+        echo "Healthcheck failed, final HTTP code: $CODE"
         exit 1
       fi
       echo "Healthcheck OK"
