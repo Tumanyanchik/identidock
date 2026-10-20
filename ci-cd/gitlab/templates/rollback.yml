@@ -15,14 +15,12 @@ rollback:
         exit 0
       fi
       echo "Rolling back to $PREV"
-    - |
+      
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" "$PROD_DIR/.env"
-      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d --pull always identidock
+      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d
     - sleep 15
     - |
       NGINX_HOST=$(grep '^NGINX_HOST=' "$PROD_DIR/.env" | cut -d '=' -f 2)
-      echo "Checking health at http://$NGINX_HOST/healthz"
-      
       CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
       if [ "$CODE" = "200" ]; then
         echo "Rollback successful"

@@ -3,31 +3,22 @@ deploy:
   image: docker:27-cli
   variables:
     DEPLOY_TAG: "newest"
+  before_script:
+    - apk add --no-cache bash
   script:
     - echo "Deploying tag $DEPLOY_TAG for commit $CI_COMMIT_SHORT_SHA"
     - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+    
+    # 1. Пушим в Docker Hub
     - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker tag $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA $DOCKERHUB_IMAGE:$DEPLOY_TAG
+    - docker push $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $DOCKERHUB_IMAGE:$DEPLOY_TAG
+    
+    # 2. Обновляем .env на сервере и поднимаем стек
     - |
-      push_with_retry() {
-        local image="$1"
-        local attempt=1
-        local max=3
-        while [ $attempt -le $max ]; do
-          echo "pushing $image (attempt $attempt/$max)"
-          if docker push "$image"; then
-            echo "OK $image pushed"
-            return 0
-          fi
-          echo "push failed, retrying in 10s..."
-          sleep 10
-          attempt=$((attempt + 1))
-        done
-        echo "ERROR $image push failed after $max attempts"
-        return 1
-      }
-      push_with_retry $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
-      push_with_retry $DOCKERHUB_IMAGE:$DEPLOY_TAG
+      sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${CI_COMMIT_SHORT_SHA}|" "$PROD_DIR/.env" || echo "IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> "$PROD_DIR/.env"
+      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
