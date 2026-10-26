@@ -5,8 +5,9 @@ services:
     image: identidock:${IMAGE_TAG}
     container_name: review-${CI_COMMIT_REF_SLUG}-identidock
     environment:
-      ENV: DEV
+      ENV: PROD 
       SECRET_KEY: ${SECRET_KEY}
+      REDIS_HOST: review-${CI_COMMIT_REF_SLUG}-redis
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}
     depends_on:
       postgresql:
@@ -26,6 +27,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  redis:
+    image: redis:8.6.2-alpine
+    container_name: review-${CI_COMMIT_REF_SLUG}-redis
+
+  dnmonster:
+    image: amouat/dnmonster:1.0
+    container_name: review-${CI_COMMIT_REF_SLUG}-dnmonster
 
   proxy:
     image: proxy:1.0
