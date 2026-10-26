@@ -2,7 +2,7 @@ name: review-${CI_COMMIT_REF_SLUG}
 
 services:
   identidock:
-    image: ${DOCKERHUB_IMAGE}:${IMAGE_TAG}
+    image: identidock:${IMAGE_TAG}
     container_name: review-${CI_COMMIT_REF_SLUG}-identidock
     environment:
       ENV: DEV

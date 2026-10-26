@@ -24,7 +24,6 @@ deploy_review:
       POSTGRES_DB=review_db_${CI_MERGE_REQUEST_IID}
       REVIEW_PORT=${REVIEW_PORT}
       EOF
-    # УБРАЛИ флаг --pull always
     - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml --env-file .env up -d
   artifacts:
     reports:
