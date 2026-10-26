@@ -2,6 +2,7 @@ stages:
   - lint
   - build
   - test
+  - review
   - deploy
   - verify
   - rollback
@@ -11,6 +12,7 @@ include:
   - local: 'ci-cd/gitlab/templates/lint.yml'
   - local: 'ci-cd/gitlab/templates/build.yml'
   - local: 'ci-cd/gitlab/templates/test.yml'
+  - local: 'ci-cd/gitlab/templates/review.yml'
   - local: 'ci-cd/gitlab/templates/deploy.yml'
   - local: 'ci-cd/gitlab/templates/verify.yml'
   - local: 'ci-cd/gitlab/templates/rollback.yml'

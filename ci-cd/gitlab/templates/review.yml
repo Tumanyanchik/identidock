@@ -1,0 +1,46 @@
+deploy_review:
+  stage: review
+  image: docker:27-cli
+  variables:
+    # Генерируем уникальный порт: например, 40001, 40002 и т.д.
+    REVIEW_PORT: "$((40000 + CI_MERGE_REQUEST_IID))"
+    IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: http://$CI_SERVER_HOST:$REVIEW_PORT
+    on_stop: stop_review
+    auto_stop_in: 1 week
+  before_script:
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+  script:
+    - echo "Deploying Review App for MR $CI_MERGE_REQUEST_IID on port $REVIEW_PORT"
+    # 1. Создаём временный .env файл с нужными переменными
+    - |
+      cat > .env <<EOF
+      IMAGE_TAG=${CI_COMMIT_SHORT_SHA}
+      SECRET_KEY=${SECRET_KEY}
+      POSTGRES_USER=identidock-user
+      POSTGRES_PASSWORD=review_password
+      POSTGRES_DB=review_db_${CI_MERGE_REQUEST_IID}
+      REVIEW_PORT=${REVIEW_PORT}
+      EOF
+    # 2. Поднимаем стек
+    - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml --env-file .env up -d --pull always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+
+stop_review:
+  stage: review
+  image: docker:27-cli
+  variables:
+    GIT_STRATEGY: none
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    action: stop
+  script:
+    - echo "Stopping Review App for MR $CI_MERGE_REQUEST_IID"
+    - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml down -v --remove-orphans
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
