@@ -11,14 +11,9 @@ deploy_review:
   before_script:
     - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
   script:
-    # 1. Вычисляем порт и сохраняем его в переменную
     - export REVIEW_PORT=$((40000 + CI_MERGE_REQUEST_IID))
     - echo "Deploying Review App for MR $CI_MERGE_REQUEST_IID on port $REVIEW_PORT"
-    
-    # 2. Записываем вычисленный порт в dotenv файл для GitLab (чтобы ссылка в MR работала)
     - echo "REVIEW_PORT=${REVIEW_PORT}" > review.env
-    
-    # 3. Генерируем .env для Docker Compose
     - |
       cat > .env <<EOF
       IMAGE_TAG=${CI_COMMIT_SHORT_SHA}
@@ -28,12 +23,25 @@ deploy_review:
       POSTGRES_DB=review_db_${CI_MERGE_REQUEST_IID}
       REVIEW_PORT=${REVIEW_PORT}
       EOF
-      
-    # 4. Запускаем
     - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml --env-file .env up -d --pull always
   artifacts:
     reports:
-      dotenv: review.env  # <--- Передаем переменную REVIEW_PORT в GitLab для environment:url
+      dotenv: review.env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+
+stop_review:
+  stage: review
+  image: docker:27-cli
+  variables:
+    GIT_STRATEGY: none
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    action: stop
+  script:
+    - echo "Stopping Review App for MR $CI_MERGE_REQUEST_IID"
+    - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml down -v --remove-orphans
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
