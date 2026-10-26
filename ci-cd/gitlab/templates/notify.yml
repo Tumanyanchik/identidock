@@ -40,11 +40,24 @@ notify_failure:
   allow_failure: true
   script:
     - |
-      # Узнаем имя упавшей джобы
-      FAILED_JOB=$(curl -s --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?scope=failed" | jq -r '.[0].name')
-      if [ -z "$FAILED_JOB" ] || [ "$FAILED_JOB" = "null" ]; then FAILED_JOB="unknown"; fi
+      # 1. Узнаем имя упавшей джобы (с защитой от падения curl)
+      FAILED_JOB="unknown"
+      if [ -n "$GITLAB_API_TOKEN" ]; then
+        # Флаг -4 (IPv4), таймаут 5 сек, и || echo "[]" на случай если API недоступен
+        JOB_INFO=$(curl -4 -s --connect-timeout 5 --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?scope=failed" || echo "[]")
+        
+        # Извлекаем имя джобы. Если ничего не нашли, jq вернет "null", мы его заменим на "unknown"
+        PARSED_NAME=$(echo "$JOB_INFO" | jq -r '.[0].name // "unknown"')
+        if [ -n "$PARSED_NAME" ] && [ "$PARSED_NAME" != "null" ]; then
+          FAILED_JOB="$PARSED_NAME"
+        fi
+      fi
       
-      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+      echo "Упавшая джоба: $FAILED_JOB"
+      echo "Отправляем сообщение в Telegram..."
+      
+      # 2. Отправляем сообщение в Telegram
+      curl -4 -s --connect-timeout 5 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
         -d chat_id="${TELEGRAM_CHAT_ID}" \
         -d parse_mode="Markdown" \
         -d text="❌ *Pipeline #${CI_PIPELINE_ID}* упал

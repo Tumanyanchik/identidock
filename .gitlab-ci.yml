@@ -26,8 +26,6 @@ variables:
   COMPOSE_PROJECT: identidock-ci-$CI_PIPELINE_ID
   LOCAL_IMAGE: identidock
   DOCKERHUB_IMAGE: tumanyan/identidock
-  NGINX_HOST: localhost
-  NGINX_PROXY: identidock
 
 default:
   interruptible: true
