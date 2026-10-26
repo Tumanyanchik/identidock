@@ -17,10 +17,19 @@ deploy:
     - docker push $DOCKERHUB_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $DOCKERHUB_IMAGE:$DEPLOY_TAG
     
-    # 3. Обновляем .env на сервере и поднимаем стек
+    # 3. Обновляем .env на сервере
     - |
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${CI_COMMIT_SHORT_SHA}|" "$PROD_DIR/.env" || echo "IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> "$PROD_DIR/.env"
-      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d
+    
+    # 4. Удаляем старые контейнеры, чтобы они не мешали (лечит "мертвые" контейнеры после ребута)
+    - docker rm -f prod-identidock identidock-prod-proxy-1 2>/dev/null || true
+    
+    # 5. Принудительно пересоздаем app и proxy
+    - |
+      docker compose -p identidock-prod \
+        -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml \
+        --env-file "$PROD_DIR/.env" \
+        up -d --force-recreate identidock proxy
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
