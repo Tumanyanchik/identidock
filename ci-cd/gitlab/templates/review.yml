@@ -17,7 +17,6 @@ deploy_review:
     - |
       cat > .env <<EOF
       IMAGE_TAG=${CI_COMMIT_SHORT_SHA}
-      LOCAL_IMAGE=${LOCAL_IMAGE}
       SECRET_KEY=${SECRET_KEY}
       POSTGRES_USER=identidock-user
       POSTGRES_PASSWORD=review_password
