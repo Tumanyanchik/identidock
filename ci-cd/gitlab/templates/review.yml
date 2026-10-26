@@ -17,13 +17,15 @@ deploy_review:
     - |
       cat > .env <<EOF
       IMAGE_TAG=${CI_COMMIT_SHORT_SHA}
+      LOCAL_IMAGE=${LOCAL_IMAGE}
       SECRET_KEY=${SECRET_KEY}
       POSTGRES_USER=identidock-user
       POSTGRES_PASSWORD=review_password
       POSTGRES_DB=review_db_${CI_MERGE_REQUEST_IID}
       REVIEW_PORT=${REVIEW_PORT}
       EOF
-    - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml --env-file .env up -d --pull always
+    # УБРАЛИ флаг --pull always
+    - docker compose -p review-${CI_COMMIT_REF_SLUG} -f ci-cd/gitlab/review/docker-compose.yml --env-file .env up -d
   artifacts:
     reports:
       dotenv: review.env
