@@ -16,19 +16,35 @@ rollback:
       fi
       echo "Rolling back to $PREV"
       
+      # 1. Меняем тег в .env на предыдущий
       sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREV}|" "$PROD_DIR/.env"
-      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d
+      
+      # 2. Убиваем старые/сломанные контейнеры, чтобы Nginx пересоздался с правильным конфигом
+      docker rm -f prod-identidock identidock-prod-proxy-1 2>/dev/null || true
+      
+      # 3. Принудительно пересоздаем приложение и Nginx
+      docker compose -p identidock-prod -f $CI_PROJECT_DIR/ci-cd/gitlab/prod/docker-compose.yml --env-file "$PROD_DIR/.env" up -d --force-recreate identidock proxy
     - sleep 15
     - |
+      # 4. Проверяем, поднялось ли
       NGINX_HOST=$(grep '^NGINX_HOST=' "$PROD_DIR/.env" | cut -d '=' -f 2)
-      CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
+      echo "Checking health at http://$NGINX_HOST/healthz"
+      
+      CODE=$(curl -4 -s -o /dev/null -w "%{http_code}" "http://$NGINX_HOST/healthz" || echo "000")
       if [ "$CODE" = "200" ]; then
-        echo "Rollback successful"
+        echo "✅ Rollback successful"
         echo "$PREV" > "$PROD_DIR/.last_good_sha"
       else
-        echo "Prod is still broken, HTTP $CODE"
+        echo "❌ Prod is still broken, HTTP $CODE"
+        # Если упало, выводим логи Nginx в консоль, чтобы понять причину
+        docker logs identidock-prod-proxy-1 --tail 20 || true
         exit 1
       fi
+    - |
+      curl -4 -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        -d chat_id="${TELEGRAM_CHAT_ID}" \
+        -d text="🚨 Rollback executed. From ${CI_COMMIT_SHORT_SHA} to ${PREV}" \
+        || echo "Telegram unreachable"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: on_failure
