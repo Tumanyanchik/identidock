@@ -1,0 +1,65 @@
+name: identidock-prod
+
+services:
+    proxy:
+       image: proxy:1.0
+       links:
+          - identidock
+       ports:
+          - "80:80"
+       environment:
+          - NGINX_HOST=${NGINX_HOST}
+          - NGINX_PROXY=${NGINX_PROXY}
+       deploy:
+          resources:
+             limits:
+                memory: 128M
+             reservations:
+                memory: 64M
+
+    identidock:
+       image: tumanyan/identidock:${IMAGE_TAG:-newest}
+       container_name: prod-identidock
+       environment:
+          ENV: PROD
+          SECRET_KEY: ${SECRET_KEY}
+          DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}
+       depends_on:
+          postgresql:
+             condition: service_healthy
+       deploy:
+          resources:
+             limits:
+                memory: 256M
+             reservations:
+                memory: 64M
+
+    postgresql:
+       image: postgres:15
+       environment:
+          POSTGRES_USER: ${POSTGRES_USER}
+          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+          POSTGRES_DB: ${POSTGRES_DB}
+       volumes:
+          - postgres_data:/var/lib/postgresql/data
+       healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+          interval: 5s
+          timeout: 3s
+          retries: 10
+
+    dnmonster:
+       image: amouat/dnmonster:1.0
+
+    redis:
+       image: redis:8.6.2-alpine
+       volumes:
+          - redis_data:/data
+       command: >
+          redis-server --appendonly yes --appendfsync everysec
+          --save 900 1 --save 300 10 --save 60 10000
+          --maxmemory 256mb --maxmemory-policy volatile-lru
+
+volumes:
+  redis_data:
+  postgres_data:

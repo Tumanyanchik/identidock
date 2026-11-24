@@ -1,5 +1,5 @@
 from flask import Flask, Response, request, render_template
-from flask_login import login_required, current_user
+from flask_login import login_required
 import hashlib
 import html
 import os
@@ -8,7 +8,6 @@ import requests
 import redis
 
 from extensions import db, login_manager, migrate, csrf
-from models import User
 from auth import auth_bp
 
 
@@ -22,7 +21,7 @@ def create_app():
             raise RuntimeError('SECRET_KEY обязателен при ENV=PROD')
         secret = 'dev-fallback-key'
         logging.warning('SECRET_KEY не задан — использую небезопасный fallback')
-   
+
     app.config['SECRET_KEY'] = secret
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -40,6 +39,7 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     return app
+
 
 app = create_app()
 
@@ -66,27 +66,27 @@ def inject_helpers():
 
 @app.route('/', methods=['GET', 'POST'])
 def mainpage():
-   name = default_name
+    name = default_name
 
-   if request.method == 'POST':
-      name = request.form['name']
+    if request.method == 'POST':
+        name = request.form['name']
 
-   return render_template('index.html', name=name, name_hash=make_name_hash(name))
-   
+    return render_template('index.html', name=name, name_hash=make_name_hash(name))
+
 
 @app.route('/monster/<name>')
 @login_required
 def get_identicon(name):
-   name = html.escape(name, quote=True)
-   image = cache.get(name)
-   if image:
-      logger.info("From cache")
-   else:
-      logger.info("Cache miss")
-      r = requests.get('http://dnmonster:8080/monster/' + name + '?size=360')
-      image = r.content
-      cache.set(name, image, ex=3600)
-   return Response(image, mimetype='image/png')
+    name = html.escape(name, quote=True)
+    image = cache.get(name)
+    if image:
+        logger.info("From cache")
+    else:
+        logger.info("Cache miss")
+        r = requests.get('http://dnmonster:8080/monster/' + name + '?size=360')
+        image = r.content
+        cache.set(name, image, ex=3600)
+    return Response(image, mimetype='image/png')
 
 
 @app.route('/healthz')
@@ -101,6 +101,5 @@ def profile():
     return render_template('profile.html')
 
 
-if __name__=='__main__':
-   app.run(debug=debug_mode, host='0.0.0.0')
-   
+if __name__ == '__main__':
+    app.run(debug=debug_mode, host='0.0.0.0')

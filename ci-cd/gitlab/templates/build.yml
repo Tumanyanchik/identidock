@@ -1,10 +1,18 @@
 build:
   stage: build
-  tags:
-    - identidock
-  image: docker:27
+  image: docker:27-cli
+  before_script:
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
   script:
-    - docker version
-    - echo "Build stage placeholder "
+    - docker pull $DOCKERHUB_IMAGE:newest || true
+    - |
+      docker build \
+        --cache-from $DOCKERHUB_IMAGE:newest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        -t $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA \
+        -t $LOCAL_IMAGE:newest \
+        -f identidock/Dockerfile identidock/
+    - docker image inspect $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA >/dev/null
+    - echo "✅ Built $LOCAL_IMAGE:$CI_COMMIT_SHORT_SHA (with cache)"
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"

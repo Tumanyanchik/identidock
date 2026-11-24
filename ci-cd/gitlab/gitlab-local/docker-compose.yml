@@ -9,9 +9,17 @@ services:
         external_url 'http://${GITLAB_HOSTNAME:-gitlab.local}:${GITLAB_HTTP_PORT:-8929}'
         gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SSH_PORT:-2224}
         nginx['redirect_http_to_https'] = false
+        
+        # Оптимизация процессов (чтобы не ели все ядра)
         puma['worker_processes'] = 2
         sidekiq['max_concurrency'] = 5
         gitlab_rails['time_zone'] = 'Europe/Moscow'
+        
+        # Ограничение памяти для внутренней БД и кэша (очень важно для 8 ГБ ОЗУ)
+        postgresql['shared_buffers'] = "128MB"
+        postgresql['effective_cache_size'] = "256MB"
+        redis['maxmemory'] = "128MB"
+
     ports:
       - "${GITLAB_HTTP_PORT:-8929}:8929"
       - "${GITLAB_HTTPS_PORT:-8443}:443"
@@ -21,12 +29,25 @@ services:
       - gitlab-logs:/var/log/gitlab
       - gitlab-data:/var/opt/gitlab
     shm_size: '256m'
+    
+    # ОГРАНИЧЕНИЯ РЕСУРСОВ (Лимиты Docker Compose)
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0'      # GitLab не сможет занять больше 3 ядер из 4
+          memory: 6G       # Жесткий лимит ОЗУ в 6 ГБ
+        reservations:
+          memory: 2G       # Минимально гарантированная память
+    # Дублируем для совместимости со старыми версиями Docker
+    mem_limit: 6g
+    cpus: 3.0
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8929/-/health"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 180s
+      start_period: 300s # Увеличено до 5 минут для медленного старта на слабой ВМ
     networks:
       - gitlab-net
 
